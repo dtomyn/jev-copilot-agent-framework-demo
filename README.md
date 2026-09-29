@@ -73,6 +73,19 @@ For presenting, there is a browser UI that shows each level's real source next t
 
 It serves on <http://127.0.0.1:5088> and **defaults to Laya in mock mode**, so it needs no API key, no container and no network.
 
+To present against a real Laya container instead, add one switch:
+
+```bash
+./scripts/webui.sh --laya   # macOS / Linux
+./scripts/webui.ps1 -Laya   # Windows PowerShell 7+
+```
+
+That starts `laya-serve` (via `laya-up`), waits for `/health`, sets `LAYA_BASE_URL` for the UI, and then starts it with Live enabled for Laya.
+A container that is already running is reused, not restarted.
+The script refuses to start if a UI is already listening on port 5088, because that instance keeps the environment it was started with and would still show Live disabled.
+It names the process holding the port and prints the command to stop it.
+Add `-Restart` (or `--restart`) to stop an earlier demo UI and start the new one in one go; it never stops a process that is not `Jev.WebUi`.
+
 - **Provider and mode switch per request**, from the top bar.
   Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL` and a running `laya-serve`.
   Everything else runs against the deterministic mock.
@@ -86,7 +99,8 @@ It serves on <http://127.0.0.1:5088> and **defaults to Laya in mock mode**, so i
 
 [`docs/tutorial.html`](docs/tutorial.html) is the written walkthrough and the UI is the live one, and they are wired together rather than maintained in parallel.
 
-- The UI reads its **presenter notes straight out of the tutorial** and shows the ones for the level on screen, behind a `Notes: on / off` toggle that mirrors the tutorial's own. A note belongs to a level because its block carries `data-level="5 9"` in the tutorial; that attribute is the whole coupling. Write the note once, in the tutorial, and it appears in both places.
+- The UI reads its **presenter notes straight out of the tutorial** and shows the ones for the level on screen. A note belongs to a level because its block carries `data-level="5 9"` in the tutorial; that attribute is the whole coupling. Write the note once, in the tutorial, and it appears in both places.
+- **The notes collapse two ways.** The card header, and the `Notes` button in the top bar, are the same switch: they fold the whole card down to a single bar for a clean runbook, and that choice is remembered. Inside the card each note is its own disclosure, so a level's notes read as a short index of section titles you open one at a time. Levels with one or two notes open the first; levels with more open none, which keeps the Run panel on screen. `Expand all` is there when you want the lot.
 - Each note links back to the tutorial section it came from.
 - The tutorial is served at `/tutorial` by the UI, so those links and the `Tutorial` button in the top bar stay same-origin and survive being sent to someone.
 - Each level section in the tutorial carries a **Run live** link that opens that level in the UI.

@@ -27,8 +27,17 @@ bind="${LAYA_BIND_ADDRESS:-127.0.0.1}"
 port="${LAYA_HOST_PORT:-8010}"
 base_url="http://$bind:$port"
 
-echo "Starting laya-serve from $compose ..."
-docker compose --file "$compose" up --detach --build
+# A running container is left alone. `up --build` would rebuild the image, and even with every
+# layer cached the new provenance manifest gives it a new ID, so compose recreates the container
+# and throws away the loaded checkpoints. Run laya-down first to pick up a changed checkout.
+running="$(docker compose --file "$compose" ps --status running --quiet)"
+
+if [ -n "$running" ]; then
+  echo "laya-serve is already running from $compose; not restarting it."
+else
+  echo "Starting laya-serve from $compose ..."
+  docker compose --file "$compose" up --detach --build
+fi
 
 echo "Waiting for $base_url/health (up to $timeout_minutes minute(s); a cold start downloads the checkpoint)..."
 deadline=$(( $(date +%s) + (timeout_minutes * 60) ))

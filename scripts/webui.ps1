@@ -3,6 +3,9 @@
 # The UI needs Jev.Core and the hook executable, both of which build offline. It does NOT need
 # TenLevels.Jev, which downloads the GitHub Copilot runtime from registry.npmjs.org: build that
 # one only when the Copilot-backed levels (6, 7, 10) are going to be run from the browser.
+#
+# With -Laya it also starts the local Laya container (scripts/laya-up.ps1), waits for /health, and
+# points the UI at it, so live mode is available for Laya from the first page load.
 [CmdletBinding()]
 param(
     # Skip the build. Use when the solution is already built and the demo is about to start.
@@ -13,12 +16,98 @@ param(
 
     # Also build TenLevels.Jev, so the "Run the full agent" button on levels 6, 7 and 10 works
     # without a first-click npm download.
-    [switch]$IncludeAgentLevels
+    [switch]$IncludeAgentLevels,
+
+    # Start laya-serve in Docker first and enable live mode for Laya. See docs/LAYA.md.
+    [switch]$Laya,
+
+    # Stop a UI that is already running on the port, then start this one. Only ever stops a
+    # Jev.WebUi process; anything else holding the port is reported and left alone.
+    [switch]$Restart
 )
 
 $ErrorActionPreference = "Stop"
 $repository = Split-Path -Parent $PSScriptRoot
-$url = "http://127.0.0.1:5088"
+$port = 5088
+$url = "http://127.0.0.1:$port"
+
+function Test-PortFree {
+    $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
+    try { $probe.Start(); return $true }
+    catch { return $false }
+    finally { $probe.Stop() }
+}
+
+function Get-PortOwner {
+    $ids = if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+        Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique
+    }
+    elseif (Get-Command lsof -ErrorAction SilentlyContinue) {
+        lsof -nP "-iTCP:$port" -sTCP:LISTEN -t 2>$null | Sort-Object -Unique
+    }
+    foreach ($id in $ids) { Get-Process -Id $id -ErrorAction SilentlyContinue }
+}
+
+function Test-IsWebUi($process) {
+    # The apphost is named after the project; `dotnet Jev.WebUi.dll` shows up as dotnet instead.
+    $process.ProcessName -eq "Jev.WebUi" -or "$($process.CommandLine)" -match "Jev\.WebUi"
+}
+
+# Checked first, because an instance that is already running keeps the environment it started
+# with: it would not see -Laya, and this one would only fail to bind after the build and the wait.
+if (-not (Test-PortFree)) {
+    $owners = @(Get-PortOwner)
+    $isOnlyWebUi = $owners.Count -gt 0 -and @($owners | Where-Object { -not (Test-IsWebUi $_) }).Count -eq 0
+
+    if ($Restart -and $isOnlyWebUi) {
+        foreach ($owner in $owners) {
+            Write-Host "Stopping the running UI (PID $($owner.Id))..."
+            Stop-Process -Id $owner.Id -Force
+        }
+
+        $deadline = (Get-Date).AddSeconds(10)
+        while (-not (Test-PortFree) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }
+        if (-not (Test-PortFree)) {
+            Write-Host "Port $port is still in use after stopping the UI." -ForegroundColor Red
+            exit 1
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "Port $port is already in use, so the UI cannot start." -ForegroundColor Red
+        Write-Host ""
+        foreach ($owner in $owners) {
+            $started = if ($owner.StartTime) { "started $($owner.StartTime.ToString('g'))" } else { "" }
+            Write-Host "  PID $($owner.Id)  $($owner.ProcessName)  $started"
+            if ($owner.Path) { Write-Host "  $($owner.Path)" }
+        }
+        Write-Host ""
+
+        if ($isOnlyWebUi) {
+            Write-Host "That is an earlier demo UI. It keeps the environment it was started with, so it"
+            Write-Host "will not pick up -Laya or a changed LAYA_BASE_URL. Stop it and start this one:"
+            Write-Host ""
+            Write-Host "  ./scripts/webui.ps1 $(@($PSBoundParameters.Keys | ForEach-Object { "-$_" }) + '-Restart' -join ' ')"
+            Write-Host ""
+            Write-Host "or stop it yourself (or press Ctrl+C in the window it is running in):"
+        }
+        elseif ($owners.Count -gt 0) {
+            Write-Host "That is not the demo UI, so -Restart will not stop it. Free the port yourself:"
+        }
+        else {
+            Write-Host "The owning process could not be identified. On Windows, find it with:"
+            Write-Host ""
+            Write-Host "  Get-NetTCPConnection -LocalPort $port -State Listen | Select-Object OwningProcess"
+            exit 1
+        }
+
+        Write-Host ""
+        foreach ($owner in $owners) { Write-Host "  Stop-Process -Id $($owner.Id)" }
+        Write-Host ""
+        exit 1
+    }
+}
 
 if (-not $NoBuild) {
     Write-Host "Building the UI and the hook..."
@@ -32,6 +121,19 @@ if (-not $NoBuild) {
     }
 }
 
+if ($Laya) {
+    # After the build, so a compile error surfaces before a potentially long cold-start wait.
+    # laya-up leaves an already running container alone, so this is safe to repeat.
+    & (Join-Path $PSScriptRoot "laya-up.ps1")
+    if ($LASTEXITCODE -ne 0) { throw "laya-serve did not start." }
+
+    # The UI offers live mode only when this is set in its own environment. Same defaults as
+    # laya-up, which is the service that was just confirmed healthy.
+    $layaBind = if ($env:LAYA_BIND_ADDRESS) { $env:LAYA_BIND_ADDRESS } else { "127.0.0.1" }
+    $layaPort = if ($env:LAYA_HOST_PORT) { $env:LAYA_HOST_PORT } else { "8010" }
+    $env:LAYA_BASE_URL = "http://${layaBind}:${layaPort}"
+}
+
 if (-not $NoBrowser) {
     # Started before the server blocks, and deliberately not waited on: the page retries its own
     # API calls, so a browser that arrives a second early simply loads a moment later.
@@ -40,7 +142,13 @@ if (-not $NoBrowser) {
 
 Write-Host ""
 Write-Host "Presentation UI: $url"
-Write-Host "Provider defaults to Laya in mock mode, which needs no API key and no network."
+if ($Laya) {
+    Write-Host "Laya live mode is available: requests go to $env:LAYA_BASE_URL."
+}
+else {
+    Write-Host "Provider defaults to Laya in mock mode, which needs no API key and no network."
+    Write-Host "Pass -Laya to start the local Laya container and enable live mode."
+}
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""
 

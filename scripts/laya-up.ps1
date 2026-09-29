@@ -31,9 +31,20 @@ $bind = if ($env:LAYA_BIND_ADDRESS) { $env:LAYA_BIND_ADDRESS } else { "127.0.0.1
 $port = if ($env:LAYA_HOST_PORT) { $env:LAYA_HOST_PORT } else { "8010" }
 $baseUrl = "http://${bind}:${port}"
 
-Write-Host "Starting laya-serve from $compose ..."
-docker compose --file $compose up --detach --build
-if ($LASTEXITCODE -ne 0) { throw "docker compose up failed." }
+# A running container is left alone. `up --build` would rebuild the image, and even with every
+# layer cached the new provenance manifest gives it a new ID, so compose recreates the container
+# and throws away the loaded checkpoints. Run laya-down first to pick up a changed checkout.
+$running = docker compose --file $compose ps --status running --quiet
+if ($LASTEXITCODE -ne 0) { throw "docker compose ps failed. Is Docker Desktop running?" }
+
+if ($running) {
+    Write-Host "laya-serve is already running from $compose; not restarting it."
+}
+else {
+    Write-Host "Starting laya-serve from $compose ..."
+    docker compose --file $compose up --detach --build
+    if ($LASTEXITCODE -ne 0) { throw "docker compose up failed." }
+}
 
 Write-Host "Waiting for $baseUrl/health (up to $TimeoutMinutes minute(s); a cold start downloads the checkpoint)..."
 $deadline = (Get-Date).AddMinutes($TimeoutMinutes)

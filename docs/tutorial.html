@@ -240,7 +240,8 @@ explaining what is really going on.
   <a href="http://127.0.0.1:5088">127.0.0.1:5088</a>. Every level gets its real source on one side and
   a panel that runs it on the other, with the state, the questions and the code-owned thresholds
   editable. It defaults to <b>Laya in mock mode</b>, so it needs no API key, no container and no
-  network.</p>
+  network. Add <code>-Laya</code> (or <code>--laya</code>) to start the local Laya container first
+  and open the UI with Live enabled for Laya.</p>
   <p>The two pages are wired together. Each level section below carries a
   <span class="runlive" style="cursor:default">Run live</span> link that opens that level in the UI,
   and the UI shows these same presenter notes, read out of this file, behind its own
@@ -1676,7 +1677,8 @@ volumes:
 <p>The script runs <code>docker compose up --detach --build</code> and then polls
 <code>/health</code> for up to twenty minutes, because returning a base URL that is not serving yet
 would only produce a confusing failure two commands later. While it waits it prints a dot every five
-seconds.</p>
+seconds. A container that is already running is left alone, so a second run does not recreate it and
+reload the checkpoints; run <code>laya-down</code> first to rebuild a changed checkout.</p>
 
 <div class="code">
   <div class="code-head">output<div class="spacer"></div></div>

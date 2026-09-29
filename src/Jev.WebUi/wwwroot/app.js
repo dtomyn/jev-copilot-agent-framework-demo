@@ -118,19 +118,10 @@
       presentButton.setAttribute('aria-pressed', String(next === 'on'));
     });
 
-    // Mirrors the tutorial's own "Presenter notes" button, down to hiding rather than removing:
-    // the notes stay in the DOM so toggling them back mid-sentence costs nothing.
-    const notesButton = document.getElementById('notes-toggle');
-    function paintNotesButton(value) {
-      notesButton.textContent = 'Notes: ' + value;
-      notesButton.setAttribute('aria-pressed', String(value === 'on'));
-    }
-    paintNotesButton(notes);
-    notesButton.addEventListener('click', () => {
-      const next = document.documentElement.getAttribute('data-notes') === 'on' ? 'off' : 'on';
-      applyPreference('jev-notes', 'data-notes', next);
-      paintNotesButton(next);
-    });
+    // Mirrors the tutorial's own "Presenter notes" button. It collapses rather than removes, so
+    // the card header stays on screen and the notes are one click away mid-sentence.
+    paintNotes();
+    document.getElementById('notes-toggle').addEventListener('click', () => setNotesExpanded(!notesExpanded()));
 
     document.getElementById('provider-seg').addEventListener('click', event => {
       const button = event.target.closest('button[data-provider]');
@@ -283,44 +274,120 @@
     return card;
   }
 
+  /** Every notes card currently on the page, so the top-bar toggle can repaint them. */
+  const notesCards = [];
+
   /**
    * The presenter notes for one level, as written in docs/tutorial.html. The HTML comes from a
    * file in this repository, already stripped of scripts and event handlers by the server, and
    * is inserted as markup so the notes keep their code spans and lists.
+   *
+   * Collapsing works at two levels because a presenter wants two different things from it. The
+   * card collapses to get the notes out of the way for the rest of the demo, and that choice is
+   * remembered. A single note collapses so the level's notes read as a list of section titles
+   * you can open one at a time, which is what makes levels 8 and 9, with four and five notes,
+   * usable at all.
    */
   function notesCard(level) {
     if (!level.notes || level.notes.length === 0) {
       return null;
     }
 
+    const many = level.notes.length > 1;
     const body = h('div', { class: 'body' });
-    const card = h('div', { class: 'notes-card' }, [
-      h('div', { class: 'h' }, [
-        document.createTextNode('Presenter notes'),
-        h('span', { class: 'spacer' }),
-        h('span', { class: 'count', text: level.notes.length === 1 ? '1 note' : level.notes.length + ' notes' })
-      ]),
-      body
+    const chevron = h('span', { class: 'chev' });
+    const expandAll = many
+      ? h('button', { class: 'allbtn', type: 'button', text: 'Expand all' })
+      : null;
+
+    const header = h('button', {
+      class: 'h',
+      type: 'button',
+      'aria-expanded': String(notesExpanded()),
+      title: 'Show or hide the presenter notes for this level'
+    }, [
+      chevron,
+      document.createTextNode('Presenter notes'),
+      h('span', { class: 'spacer' }),
+      h('span', { class: 'count', text: many ? level.notes.length + ' notes' : '1 note' }),
+      expandAll
     ]);
 
-    for (const note of level.notes) {
-      const source = h('span', { class: 'src' });
+    const card = h('div', { class: 'notes-card' + (notesExpanded() ? '' : ' collapsed') }, [header, body]);
+
+    header.addEventListener('click', () => {
+      // Routed through the shared preference so the top-bar button and this header are the same
+      // switch rather than two that can disagree.
+      setNotesExpanded(!notesExpanded());
+    });
+
+    // A level with one or two notes opens the first, because that note is the thing to read. A
+    // level with more opens none, so its notes read as a short index of section titles and the
+    // Run panel stays on screen; levels 8 and 9 have four and five.
+    const openFirst = level.notes.length <= 2;
+
+    const panels = [];
+    level.notes.forEach((note, index) => {
+      const panel = h('details', { class: 'pnote', open: openFirst && index === 0 });
+      const summary = h('summary', { class: 'src' }, [
+        h('span', { class: 'chev' }),
+        h('span', { class: 'sec', text: note.section })
+      ]);
+
       if (note.anchor) {
-        source.appendChild(h('a', {
+        const link = h('a', {
+          class: 'go',
           href: '/tutorial#' + note.anchor,
           target: '_blank',
           rel: 'noopener',
           title: 'Open this section of the tutorial',
-          text: note.section
-        }));
-      } else {
-        source.appendChild(document.createTextNode(note.section));
+          text: 'tutorial ↗'
+        });
+
+        // A click on a link inside a <summary> would otherwise also toggle the disclosure.
+        link.addEventListener('click', event => event.stopPropagation());
+        summary.appendChild(link);
       }
 
-      body.appendChild(h('div', { class: 'pnote' }, [source, h('div', { html: note.html })]));
+      panel.appendChild(summary);
+      panel.appendChild(h('div', { class: 'body', html: note.html }));
+      body.appendChild(panel);
+      panels.push(panel);
+    });
+
+    if (expandAll) {
+      expandAll.addEventListener('click', event => {
+        event.stopPropagation();
+        const open = panels.some(panel => !panel.open);
+        panels.forEach(panel => { panel.open = open; });
+        expandAll.textContent = open ? 'Collapse all' : 'Expand all';
+      });
     }
 
+    notesCards.push({ card: card, header: header });
     return card;
+  }
+
+  function notesExpanded() {
+    return document.documentElement.getAttribute('data-notes') !== 'off';
+  }
+
+  function setNotesExpanded(expanded) {
+    applyPreference('jev-notes', 'data-notes', expanded ? 'on' : 'off');
+    paintNotes();
+  }
+
+  function paintNotes() {
+    const expanded = notesExpanded();
+    const button = document.getElementById('notes-toggle');
+    if (button) {
+      button.textContent = 'Notes: ' + (expanded ? 'on' : 'off');
+      button.setAttribute('aria-pressed', String(expanded));
+    }
+    for (const entry of notesCards) {
+      entry.card.classList.toggle('collapsed', !expanded);
+      entry.header.setAttribute('aria-expanded', String(expanded));
+    }
   }
 
   // ------------------------------------------------------- reusable controls
@@ -1159,6 +1226,7 @@
       h('p', { text: level.summary })
     ]));
 
+    notesCards.length = 0;
     const notes = notesCard(level);
     if (notes) {
       main.appendChild(notes);

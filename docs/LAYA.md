@@ -55,6 +55,18 @@ Point `LAYA_HOME` elsewhere if yours differs.
 
 The script runs `docker compose up` and then waits for `/health`, because the first boot downloads a checkpoint into a named volume and can take several minutes.
 It prints the loaded checkpoints and the base URL when the service is ready.
+If the container is already running, the script leaves it alone and only waits for `/health`, so running it twice does not throw away the loaded checkpoints.
+Run `laya-down` first when you want a changed checkout rebuilt.
+
+To start the container and the presentation UI in one step, with Live enabled for Laya:
+
+```powershell
+./scripts/webui.ps1 -Laya
+```
+
+```bash
+./scripts/webui.sh --laya
+```
 
 Stop it with `./scripts/laya-down.ps1` (add `-RemoveVolumes`, or `--volumes` for the shell version, only if you want the next start to download the weights again).
 
