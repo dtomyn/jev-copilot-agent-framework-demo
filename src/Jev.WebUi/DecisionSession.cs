@@ -96,7 +96,7 @@ public static class DecisionSession
                 jevLive,
                 jevLive
                     ? "Live requests go to the hosted TypeSafe endpoint."
-                    : "Set TYPESAFE_API_KEY to enable live mode. Mock mode needs no key."),
+                    : "Enter a TypeSafe API key under Config, or set TYPESAFE_API_KEY, to enable live mode. Mock mode needs no key."),
         ];
     }
 }

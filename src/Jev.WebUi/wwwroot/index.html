@@ -33,6 +33,7 @@
 
   <div class="spacer"></div>
 
+  <button type="button" class="btn" id="config-open" aria-haspopup="dialog" title="Set the TypeSafe API key for live Jev">Config</button>
   <a class="btn" id="tutorial-link" href="/tutorial" target="_blank" rel="noopener" title="Open the full step-by-step tutorial">Tutorial</a>
   <button type="button" class="btn" id="notes-toggle" aria-pressed="true" title="Show the presenter notes from docs/tutorial.html">Notes: on</button>
   <button type="button" class="btn" id="present-toggle" aria-pressed="false" title="Scale up for a projector">Presenter</button>
@@ -46,6 +47,35 @@
   </nav>
   <main id="main" aria-live="polite"></main>
 </div>
+
+<!-- Static rather than built by app.js: it is the same dialog on every level. -->
+<dialog class="modal" id="config-dialog" aria-labelledby="config-title">
+  <div class="modal-head">
+    <h2 id="config-title">Configuration</h2>
+    <button type="button" class="iconbtn modal-close" id="config-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="ctl">
+      <label for="jev-key">TypeSafe API key</label>
+      <div class="keystatus" id="jev-key-status"><span class="statusdot"></span><span></span></div>
+      <!-- No <form>, and the password-manager opt-outs, so saving a key does not offer to store it
+           as a login for 127.0.0.1. -->
+      <input type="password" id="jev-key" class="mono" autocomplete="off" spellcheck="false"
+             autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore
+             placeholder="Paste a key to enable live Jev">
+      <span class="hint">Sent only to this UI on 127.0.0.1 and applied as <code>TYPESAFE_API_KEY</code>
+        for it and the levels it starts, as if it had been set in the shell. Held in memory, never
+        written to disk, and gone when the UI stops.</span>
+    </div>
+    <div class="err" id="config-error" role="alert" hidden></div>
+  </div>
+  <div class="modal-foot">
+    <button type="button" class="btn btn-ghost" id="jev-key-clear">Clear key</button>
+    <div class="spacer"></div>
+    <button type="button" class="btn" id="config-cancel">Close</button>
+    <button type="button" class="btn btn-primary" id="jev-key-save">Save key</button>
+  </div>
+</dialog>
 
 <script src="highlight.js"></script>
 <script src="app.js"></script>

@@ -50,9 +50,9 @@
     return node;
   }
 
-  async function api(path, body) {
+  async function api(path, body, method) {
     const response = await fetch(path, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method || (body === undefined ? 'GET' : 'POST'),
       headers: body === undefined ? undefined : { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
@@ -138,6 +138,99 @@
         syncSelectors();
       }
     });
+
+    initConfig();
+  }
+
+  // ----------------------------------------------------------------- config
+
+  // The key goes to the server once and never comes back: all this dialog ever learns is whether
+  // one is set and where it came from, because the page is usually on a projector.
+  function initConfig() {
+    const dialog = document.getElementById('config-dialog');
+    const input = document.getElementById('jev-key');
+    const save = document.getElementById('jev-key-save');
+    const clear = document.getElementById('jev-key-clear');
+
+    document.getElementById('config-open').addEventListener('click', () => {
+      showConfigError('');
+      paintKeyStatus();
+      dialog.showModal();
+      input.focus();
+    });
+    document.getElementById('config-close').addEventListener('click', () => dialog.close());
+    document.getElementById('config-cancel').addEventListener('click', () => dialog.close());
+
+    // A click that lands on the dialog element itself, rather than its content, is the backdrop.
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) {
+        dialog.close();
+      }
+    });
+
+    // Escape, the buttons, and the backdrop all end here, so a half-typed key never outlives it.
+    dialog.addEventListener('close', () => { input.value = ''; });
+
+    const submit = () => {
+      if (!input.value.trim()) {
+        showConfigError('Paste a key first.');
+        input.focus();
+        return;
+      }
+      changeKey(() => api('/api/credentials/jev', { apiKey: input.value }, 'PUT'));
+    };
+    save.addEventListener('click', submit);
+    input.addEventListener('input', () => showConfigError(''));
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit();
+      }
+    });
+    clear.addEventListener('click', () => changeKey(() => api('/api/credentials/jev', undefined, 'DELETE')));
+  }
+
+  function paintKeyStatus() {
+    const key = (state.config && state.config.jevApiKey) || { set: false, source: null };
+    const status = document.getElementById('jev-key-status');
+    status.firstElementChild.className = 'statusdot ' + (key.set ? 'ok' : 'warn');
+    status.lastElementChild.textContent = !key.set
+      ? 'Not set. Live mode for Jev stays off until a key is saved.'
+      : key.source === 'environment'
+        ? 'Set from the environment the UI was started with. Live mode for Jev is available.'
+        : 'Set from this page. Live mode for Jev is available.';
+    document.getElementById('jev-key').placeholder = key.set ? 'Paste a new key to replace it' : 'Paste a key to enable live Jev';
+    document.getElementById('jev-key-clear').disabled = !key.set;
+    document.getElementById('jev-key-save').textContent = key.set ? 'Replace key' : 'Save key';
+  }
+
+  function showConfigError(message) {
+    const box = document.getElementById('config-error');
+    box.textContent = message || '';
+    box.hidden = !message;
+  }
+
+  async function changeKey(request) {
+    const input = document.getElementById('jev-key');
+    const buttons = [...document.querySelectorAll('#config-dialog .modal-foot button')];
+    for (const button of buttons) {
+      button.disabled = true;
+    }
+    showConfigError('');
+    try {
+      // The response is the whole config, so the Live toggle repaints from the same answer.
+      state.config = await request();
+      input.value = '';
+      syncSelectors();
+    } catch (error) {
+      showConfigError(error.message);
+    } finally {
+      for (const button of buttons) {
+        button.disabled = false;
+      }
+      paintKeyStatus();
+      input.focus();
+    }
   }
 
   function providerStatus() {

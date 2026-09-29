@@ -88,6 +88,7 @@ Add `-Restart` (or `--restart`) to stop an earlier demo UI and start the new one
 
 - **Provider and mode switch per request**, from the top bar.
   Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL` and a running `laya-serve`.
+  The Jev key can also be entered in the **Config** dialog, in a masked field. It is applied as `TYPESAFE_API_KEY` for the UI and every hook and level process it starts, exactly as if it had been set in the shell. It is held in memory only, never written to disk, and never sent back to the page.
   Everything else runs against the deterministic mock.
 - **Every scenario is editable.**
   The state, the question wording, the choice set, the score rubric and the code-owned threshold all start at the level's checked-in values and can be changed and re-run.

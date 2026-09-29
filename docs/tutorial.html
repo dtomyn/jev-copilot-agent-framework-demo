@@ -241,7 +241,8 @@ explaining what is really going on.
   a panel that runs it on the other, with the state, the questions and the code-owned thresholds
   editable. It defaults to <b>Laya in mock mode</b>, so it needs no API key, no container and no
   network. Add <code>-Laya</code> (or <code>--laya</code>) to start the local Laya container first
-  and open the UI with Live enabled for Laya.</p>
+  and open the UI with Live enabled for Laya. For live Jev, enter a TypeSafe API key under
+  <b>Config</b> in the UI's top bar; it is held in memory for that UI only.</p>
   <p>The two pages are wired together. Each level section below carries a
   <span class="runlive" style="cursor:default">Run live</span> link that opens that level in the UI,
   and the UI shows these same presenter notes, read out of this file, behind its own
@@ -273,17 +274,19 @@ should run. One idea holds the whole progression together:
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>This framing is the reason the demo is worth giving at all. The naive version of an "AI safety hook"
-  is <em>model says safe, therefore execute</em>. That fails in two directions at once: it is bypassable
-  through prompt injection inside the tool arguments, and it is unauditable because the policy lives in
-  a prompt rather than in reviewable code.</p>
-  <p>The version here inverts the relationship. Before Jev is consulted at all, an anchored regex layer
-  hard-denies the commands nobody needs a model to judge, and a credential layer stops secret-shaped
-  text from ever leaving the machine. Jev only sees the ambiguous middle, and even then the C# code
-  decides what its numbers are allowed to mean.</p>
-  <p>A useful contrast to draw out loud: the deterministic layer has a <em>knowable, testable</em>
-  false-negative rate; the model layer has an unknown one. So the deterministic layer is placed where a
-  false negative would be fatal, and Jev is placed where the worst case is one unnecessary human prompt.</p>
+  <p>Open with this, because every level after it is a variation on the same idea. Ask the room how
+  they would build a safety check for a coding agent. Most people land on "ask the model whether the
+  command is safe, and run it if the answer is yes."</p>
+  <p>That design has two problems. Anyone who can get text into the tool arguments can argue with the
+  model, which is prompt injection by another name. And when it lets something bad through, there is
+  no policy to read afterwards, only a prompt.</p>
+  <p>This repository turns it around. Before Jev sees anything, an anchored regex layer denies the
+  commands nobody needs a model to judge, and a credential layer stops secret-shaped text from leaving
+  the machine. Jev only ever sees the ambiguous middle, and even then the C# code decides what its
+  numbers mean.</p>
+  <p>If you want one idea to leave them with, it is this. The rules have a miss rate you can measure
+  and test; the model's miss rate is unknown. So the rules go where a miss would be a disaster, and
+  the model goes where the worst it can do is cause one extra approval prompt.</p>
 </div>
 
 <h3>The ten levels at a glance</h3>
@@ -306,13 +309,16 @@ should run. One idea holds the whole progression together:
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Seven of the ten levels run with nothing but the .NET SDK and no API key, because they use a
-  deterministic local mock. That is deliberate. You can give this talk on a locked-down laptop, on a
-  plane, or in a client environment where you cannot authenticate anything, and still land eight of the
-  ten teaching points including the entire hook story.</p>
-  <p>Only levels 6, 7, and 10 need an authenticated GitHub Copilot runtime, and those three are about
-  the <em>agent</em> rather than about the <em>policy</em>. If Copilot login fails live on stage, say so
-  and narrate level 10 instead of running it. Nothing about the safety argument depends on them.</p>
+  <p>Use this table to show the audience where the talk is going before you start. The first half is
+  about policy and the second half is about agents.</p>
+  <p>Then reassure them about setup. Seven of the ten levels run on the .NET SDK alone, against a
+  deterministic local mock, with no API key. That was a deliberate choice: you can give this talk on a
+  locked-down laptop, on a plane, or on a client network where you cannot sign in to anything, and
+  still cover the whole hook story.</p>
+  <p>Levels 6, 7, and 10 are the exception. They need an authenticated GitHub Copilot runtime, and
+  they are about how an agent uses the engine rather than about policy. If Copilot sign-in fails on
+  stage, say so, talk through level 10 from its source instead, and move on. None of the safety
+  argument depends on those three.</p>
 </div>
 
 <h2 id="step0"><span class="stepnum">0</span>Prerequisites and environment check</h2>
@@ -393,20 +399,20 @@ matters for step 11: <code>docker --version</code> succeeds even when the daemon
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Two build invariants are worth knowing before anyone tries this on their own machine, because both
-  produce confusing failures.</p>
-  <p><b>NuGet feeds.</b> <code>NuGet.config</code> clears all sources and pins exactly one
-  (nuget.org), and the repo uses Central Package Management. If a machine-level or corporate feed
-  leaks in, NuGet raises <code>NU1507</code> ("there are N package sources defined"), and because
-  <code>Directory.Build.props</code> sets <code>TreatWarningsAsErrors</code>, that warning becomes a
-  build break. The fix is not to relax the warning; it is to keep the pin or add explicit package
+  <p>This one is for you rather than the room. Read it before anyone tries the repository on their own
+  machine, because both of these failures are baffling the first time you hit them.</p>
+  <p><b>NuGet feeds.</b> <code>NuGet.config</code> clears every source and pins exactly one,
+  nuget.org, and the repository uses Central Package Management. If a machine-level or corporate feed
+  leaks in, NuGet raises <code>NU1507</code> ("there are N package sources defined").
+  <code>Directory.Build.props</code> sets <code>TreatWarningsAsErrors</code>, so that warning becomes
+  a broken build. Resist the urge to switch the warning off. Keep the pin, or add explicit package
   source mapping.</p>
-  <p><b>The npm download.</b> <code>TenLevels.Jev</code> depends on <code>GitHub.Copilot.SDK</code>
-  transitively, and its MSBuild targets download the Copilot CLI from <code>registry.npmjs.org</code>
-  <em>at build time</em>. That is the only step in this repository that needs a non-NuGet network
-  endpoint. The repo caps that download at 90 seconds (<code>CopilotCliDownloadTimeout</code>) instead
-  of the SDK default of 600, precisely so a blocked corporate network gives you an error in a minute and
-  a half rather than a ten-minute silent hang.</p>
+  <p><b>The npm download.</b> <code>TenLevels.Jev</code> depends on <code>GitHub.Copilot.SDK</code>,
+  and its MSBuild targets download the Copilot CLI from <code>registry.npmjs.org</code> <em>at build
+  time</em>. Nothing else in the repository needs a network endpoint outside NuGet, so if someone's
+  build seems to hang, this is almost always why. The repository caps the download at 90 seconds
+  (<code>CopilotCliDownloadTimeout</code>) instead of the SDK's default of 600, so a blocked corporate
+  network produces an error in a minute and a half instead of ten silent minutes.</p>
 </div>
 
 <h2 id="step1"><span class="stepnum">1</span>Bootstrap the repository</h2>
@@ -458,18 +464,19 @@ Live open-source provider: ./scripts/laya-up.ps1  (see docs/LAYA.md)</code></pre
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>The ordering here is the whole point, and it is worth one sentence on stage. Everything that can be
-  built and verified offline is built and verified <em>first</em>. The one project that needs an internet
-  resource outside NuGet is built <em>last</em>, and its failure is reported as a warning rather than
-  aborting the script. So a restricted-network attendee still ends up with a working hook, working
-  self-tests, and eight runnable levels.</p>
-  <p>The "no build inside the hook" rule deserves emphasis too. A <code>preToolUse</code> hook runs on
-  <em>every single tool call</em> in a Copilot session, inside an 8-second timeout. A cold
-  <code>dotnet build</code> there would blow the timeout, and a hook timeout in Copilot CLI
-  <em>fails open</em>. So the design choice "compile ahead of time, execute a DLL" is a security
-  property, not just a speed optimization.</p>
-  <p>Notice also what the wrapper does when the DLL is missing: it returns <code>ask</code>, not
-  <code>allow</code> and not a crash. Every degraded path in this repo lands on "ask a human."</p>
+  <p>This step looks like housekeeping, and mostly it is. Two decisions are hidden in it, though, and
+  each is worth a sentence out loud.</p>
+  <p>The first is the order. Everything that can be built and checked offline goes first. The one
+  project that needs something outside NuGet goes last, and if it fails, the script prints a warning
+  and carries on. Someone on a restricted network still walks away with a working hook, passing
+  self-tests, and a web UI that runs every level that does not need Copilot.</p>
+  <p>The second is that the hook never builds anything. A <code>preToolUse</code> hook runs on every
+  tool call in a Copilot session, with an 8-second timeout. A cold <code>dotnet build</code> would
+  blow straight through that, and when a hook times out, Copilot CLI <em>fails open</em>. So compiling
+  ahead of time and running a DLL is a security decision as much as a speed one.</p>
+  <p>Point at what happens when the DLL is missing, too. The wrapper answers <code>ask</code>. It does
+  not answer <code>allow</code>, and it does not crash. The audience will see the same pattern all the
+  way through: whenever something is degraded, the answer falls back to asking a person.</p>
 </div>
 
 <h2 id="step2"><span class="stepnum">2</span>The three primitives and the wire format</h2>
@@ -567,21 +574,24 @@ interchangeable everywhere in the repo:</p>
 
 <div class="notes" data-level="1 2 3 4">
   <div class="label">Presenter note</div>
-  <p>Three things to point at in this section.</p>
-  <p><b>Why "bounded" matters.</b> The reason a Score takes an ordered array of <em>descriptive</em>
-  levels rather than "rate 1 to 10" is that a bare 1-to-10 scale has no shared meaning between the
-  caller and the model. Writing out "read-only / small repository-local mutation / broad or stateful
-  mutation / destructive or security-sensitive" makes the rubric reviewable in a pull request. Someone
-  can disagree with level 2's wording in code review. Nobody can meaningfully code-review "rate it 1 to 10."</p>
-  <p><b>Why the whole probability distribution is returned.</b> The Choice answer carries every option's
-  probability, not only the winner. <code>CopilotToolGate</code> uses that: it reads
-  <code>probabilities["deny"]</code> directly rather than trusting the argmax. A 0.45 / 0.45 / 0.10 split
-  has a winner, but it is a coin flip, and code that only looks at <code>choice</code> cannot tell the
-  difference between that and a 0.95 landslide.</p>
-  <p><b>Why the interface is this small.</b> One method, one state, a dictionary of questions. That is
-  what lets <code>MockJevClient</code> and <code>SystemOneHttpClient</code> be swapped by a single CLI flag,
-  and it is why the self-tests can assert the exact serialized wire shape against a stub
-  <code>HttpMessageHandler</code> without any network.</p>
+  <p>Before you run anything, put the request on screen and give people a moment to read it. Levels 1
+  to 4 are all variations on this one shape, so a minute here saves five later. There are three things
+  to draw out.</p>
+  <p><b>The rubric is written out in words.</b> A Score takes an ordered list of <em>descriptive</em>
+  levels instead of "rate this from 1 to 10", because a bare number scale means something slightly
+  different to everyone who reads it. When the levels say "read-only", "small repository-local
+  mutation", "broad or stateful mutation", and "destructive or security-sensitive", a reviewer can
+  disagree with the wording of level 2 in a pull request. Nobody can usefully review "rate it 1 to
+  10".</p>
+  <p><b>You get the whole distribution back.</b> A Choice answer carries a probability for every
+  option, not only the winner. <code>CopilotToolGate</code> relies on that: it reads
+  <code>probabilities["deny"]</code> directly instead of trusting whichever option came top. A 0.45 /
+  0.45 / 0.10 split still has a winner, but it is a coin flip, and code that only looks at
+  <code>choice</code> cannot tell it apart from a 0.95 landslide.</p>
+  <p><b>The interface is one method.</b> One state, a dictionary of questions, one call. That is why
+  <code>MockJevClient</code> and <code>SystemOneHttpClient</code> swap with a single command-line
+  flag, and why the self-tests can check the exact JSON on the wire against a stub
+  <code>HttpMessageHandler</code> with no network at all.</p>
 </div>
 
 <h2 id="step3"><span class="stepnum">3</span>Levels 1 to 4: typed judgments in plain .NET</h2>
@@ -662,15 +672,19 @@ Console.WriteLine(answer.Noul &gt;= <span class="hl">0.80</span> ? "C# policy: B
 
 <div class="notes" data-level="1">
   <div class="label">Presenter note</div>
-  <p>The whole lesson of level 1 is the last line. The threshold <code>0.80</code> is a literal in your
-  source file. It shows up in a diff, it can carry a comment explaining why it is 0.80 and not 0.65, and
-  it can be changed without touching a prompt. Jev supplied a number; your code supplied the meaning.</p>
-  <p>Mention the <code>NoulCriteria</code> pair as well. Spelling out what "true" means and what "false"
-  means is what turns a vague question into a bounded one. Without it you are relying on the model and
-  the reader agreeing about the word "destructive."</p>
-  <p>If someone asks why the mock returns exactly 0.94: the state contains <code>rm -rf</code>, which
-  matches a hard-deny regex, so <code>RiskHeuristics.Classify</code> puts it in the High band, and the
-  mock maps High to 0.94 every time. Determinism is the feature. Your demo output will never surprise you.</p>
+  <p>Take this one slowly. It is the smallest example in the talk on purpose: one question, one
+  number, one <code>if</code>. Everything that follows builds on this shape without changing it.</p>
+  <p>Put the cursor on the last line of the source. The <code>0.80</code> is a literal in a C# file.
+  It shows up in a diff, it can carry a comment explaining why it is 0.80 and not 0.65, and you can
+  change it without going anywhere near a prompt. Jev supplied the number. The code decided what the
+  number means.</p>
+  <p>Then scroll up to the <code>NoulCriteria</code> pair. Writing down what "true" means and what
+  "false" means is what turns a vague question into a bounded one. Without it, you are hoping the
+  model and the reader agree on what "destructive" means.</p>
+  <p><b>If someone asks</b> why the mock always says exactly 0.94: the state contains <code>rm
+  -rf</code>, which matches a hard-deny regex, so <code>RiskHeuristics.Classify</code> puts it in the
+  High band, and the mock maps High to 0.94 every time. That predictability is what you want in a
+  demo. Nothing on screen will surprise you.</p>
 </div>
 
 <h3 id="level02">Level 02 - typed routing <a class="runlive" href="http://127.0.0.1:5088/#level2" title="Open level 2 in the interactive demo UI">Run live</a></h3>
@@ -688,19 +702,23 @@ is written out in advance as three named options with descriptions, so the model
 
 <div class="notes" data-level="2">
   <div class="label">Presenter note</div>
-  <p>Contrast this explicitly with the code it replaces. The hand-written version is a ladder of
-  <code>if (command.Contains("install")) ... else if (command.Contains("global")) ...</code> that nobody
-  can keep correct as the surface grows. The Choice version states the answer space once, and the
-  interesting part becomes the criteria text rather than the control flow.</p>
-  <p>Two confidence numbers are printed, and the difference is the subject of step 12. The mock puts
-  0.76 of the probability mass on <code>ask</code> for the Medium band, so <code>answer=0.76</code>. The
-  leading <code>confidence=0.64</code> is the provider's own definition of the word, here Jev's
-  <code>(n&times;p_max - 1)/(n - 1)</code>; run the same level with <code>--provider laya</code> and it
-  reads 0.35, because Laya defines <code>confidence</code> as normalized entropy. Same distribution, same
-  decision, different number. Policy in this repo reads <code>answer</code> only.</p>
-  <p>The 0.76 is not a rounding artifact either: the mock puts 0.94 on confident bands (Low and High) and
-  0.76 on the Medium band, so "the model is unsure" is reproducible on stage. You will use that 0.76
-  again at level 5, where it is exactly what fails the allow threshold.</p>
+  <p>Start with the code this replaces, because everyone in the room has written it. It is a ladder of
+  <code>if (command.Contains("install")) ... else if (command.Contains("global")) ...</code> that
+  grows every sprint and is never quite right.</p>
+  <p>The Choice version states the answer space once, as three named options with descriptions, and
+  the model has to pick one of them. The interesting part of the code moves out of the control flow
+  and into the criteria text, which is where the judgment actually lives.</p>
+  <p>Then point at the two confidence numbers on the output line. You do not need to explain them
+  fully yet, because step 12 does. The short version: the mock puts 0.76 of the probability on
+  <code>ask</code> for a Medium-band state, so <code>answer=0.76</code>. The
+  <code>confidence=0.64</code> in front of it is the provider's own definition of the word, here Jev's
+  <code>(n&times;p_max - 1)/(n - 1)</code>. Run the same level with <code>--provider laya</code> and
+  it reads 0.35, because Laya defines <code>confidence</code> as normalized entropy. Same
+  distribution, same decision, different number. Policy in this repository only ever reads
+  <code>answer</code>.</p>
+  <p>Make sure the 0.76 sticks. The mock puts 0.94 on the confident bands (Low and High) and 0.76 on
+  Medium, so "the model is unsure" happens the same way on every run. At level 5, that 0.76 is exactly
+  what fails the allow threshold.</p>
 </div>
 
 <h3 id="level03">Level 03 - ordered risk <a class="runlive" href="http://127.0.0.1:5088/#level3" title="Open level 3 in the interactive demo UI">Run live</a></h3>
@@ -725,16 +743,20 @@ risk: score=<span class="warn">1.56</span>, confidence=0.84 (answer=0.88)</code>
 
 <div class="notes" data-level="3">
   <div class="label">Presenter note</div>
-  <p>The key difference from Choice: a Score is <em>ordered</em>, so arithmetic on it is meaningful.
-  You can say "escalate above 2.0" or "average the scores of the five files in this PR." You cannot
-  average a Choice.</p>
-  <p>Where 1.56 comes from, if asked: the state mentions editing files and adding a package reference,
-  which lands in the Medium band, the mock's normalized Medium value is 0.52, and 0.52 multiplied by
-  (4 levels - 1) is 1.56. The non-integer result is the point. The action sits between "repository-local
-  mutation" and "broad change," and the score preserves that rather than forcing it into a bucket.</p>
-  <p>Note also that a Score answer returns a <code>legend</code>, mapping each index back to its
-  description. That is what lets a log line say "1.56, between 'repository-local mutation with easy
-  rollback' and 'broad change'" instead of a bare number nobody can interpret six months later.</p>
+  <p>Set this up with a question: when is a Choice the wrong tool? When the answers have an order.
+  "Read-only" and "destructive" are different categories, but one is also clearly worse than the
+  other, and a Score keeps that ordering.</p>
+  <p>Because the result is ordered, arithmetic on it means something. You can write "escalate above
+  2.0", or average the scores of the five files in a pull request. You cannot average a Choice.</p>
+  <p>Point at the 1.56. It is not a whole number, and that is useful: the action falls between
+  "repository-local mutation" and "broad change", and the score says so instead of forcing it into one
+  bucket.</p>
+  <p>Mention the <code>legend</code> that comes back with a Score, too. It maps each index back to its
+  description, so a log line can say "1.56, between 'repository-local mutation with easy rollback' and
+  'broad change'" instead of a bare number that nobody can interpret six months later.</p>
+  <p><b>If someone asks</b> where 1.56 comes from: the state mentions editing files and adding a
+  package reference, which lands in the Medium band. The mock's normalized Medium value is 0.52, and
+  0.52 times (4 levels - 1) is 1.56.</p>
 </div>
 
 <h3 id="level04">Level 04 - parallel typed judgments <a class="runlive" href="http://127.0.0.1:5088/#level4" title="Open level 4 in the interactive demo UI">Run live</a></h3>
@@ -786,18 +808,22 @@ answered and why. The mock prints a placeholder; step 11 shows the real one.</p>
 
 <div class="notes" data-level="4">
   <div class="label">Presenter note</div>
-  <p>Three different question types, three different answer types, <em>one</em> request and one state.
-  This matters for two practical reasons: latency (one round trip instead of three) and coherence (all
-  three judgments are made against exactly the same evidence, so they cannot disagree because one of them
-  saw a different description).</p>
-  <p>The <code>input_tokens</code> line is worth a beat. A hosted engine is priced and budgeted like any
-  other model call, and a hook that runs on every tool call in a long agent session makes that cost real.
-  The usage block is surfaced in the demo output specifically so nobody forgets there is a meter running.
-  A self-hosted Laya container moves that meter from an invoice to your own CPU, which is a different
-  trade rather than a free one.</p>
-  <p>Design guidance to offer here: prefer one request with several named questions over several
-  requests. Name the questions after what you will do with the answer (<code>has_side_effect</code>,
-  <code>route</code>, <code>risk</code>), not after the model.</p>
+  <p>This is where the first three levels come together: three question types, three answer types, and
+  <em>one</em> request against one state.</p>
+  <p>Give two reasons that matters. Latency, because it is one round trip instead of three.
+  Consistency, because all three judgments look at exactly the same evidence, so they cannot disagree
+  just because one of them was sent a slightly different description.</p>
+  <p>Then run it again under <code>--provider laya</code> and put the two outputs side by side. Let
+  the audience spot the difference themselves. The choice, the score, and every <code>answer=</code>
+  value match exactly; only <code>confidence=</code> moved. You will come back to that in step 12, so
+  a sentence is enough for now.</p>
+  <p>Spend a moment on <code>input_tokens</code>. A hosted engine is billed like any other model call,
+  and a hook that fires on every tool call in a long agent session adds up. The usage line is in the
+  output so nobody forgets that a meter is running. A self-hosted Laya container moves that cost from
+  an invoice to your own CPU, which is a different trade-off rather than a free one.</p>
+  <p>Finish with a piece of design advice. Prefer one request with several named questions over
+  several requests, and name each question after what you will do with the answer
+  (<code>has_side_effect</code>, <code>route</code>, <code>risk</code>), not after the model.</p>
 </div>
 
 <h2 id="step4"><span class="stepnum">4</span>Level 5: code owns the policy <a class="runlive" href="http://127.0.0.1:5088/#level5" title="Open level 5 in the interactive demo UI">Run level 5 live</a></h2>
@@ -893,21 +919,24 @@ bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a d
 
 <div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
-  <p>Walk the middle row of the table arithmetically, out loud. It is the most convincing sixty seconds
-  of the demo.</p>
-  <p><code>dotnet add package Example.Package</code> lands in the mock's Medium band, so the Choice comes
-  back as <code>ask</code> with confidence 0.76, and the probability distribution is deny 0.12, ask 0.76,
-  allow 0.12. Now apply the code: deny 0.12 is below the 0.55 deny gate, so no deny. Allow 0.12 is far
-  below the 0.85 allow gate, so no allow. Fall through to <span class="pill ask">ask</span>. At no point
-  did the code ask "what did the model choose?" and obey it.</p>
-  <p>The asymmetry is deliberate and worth naming: <b>0.55 to deny, 0.85 to allow.</b> Denying is cheap
-  (a human re-runs the command themselves) and allowing is expensive (the command already ran). So the
-  bar to allow is far higher than the bar to deny. Any threshold pair you choose encodes a cost model;
-  this one encodes that cost model honestly.</p>
-  <p>Third point: the read-only fast path exists for latency, not just tidiness. An agent session makes
-  dozens of <code>view</code> and <code>grep</code> calls. Sending every one to a remote model would add
-  network latency to every read and would leak the contents of your repository paths to an external API
-  for no decision benefit.</p>
+  <p>Slow down here. Level 5 is where the talk turns from "look what the model can tell you" to "here
+  is who gets to decide". <code>CopilotToolGate</code>, the class it introduces, is the same one that
+  levels 8, 9, and the real hook use later.</p>
+  <p>Run it and read the three output lines. Then walk through the middle row out loud, with the
+  numbers. It is the most convincing minute of the demo.</p>
+  <p><code>dotnet add package Example.Package</code> lands in the mock's Medium band. The Choice comes
+  back as <code>ask</code>, and the distribution is deny 0.12, ask 0.76, allow 0.12. Now apply the
+  code. Deny at 0.12 is below the 0.55 deny bar, so no deny. Allow at 0.12 is nowhere near the 0.85
+  allow bar, so no allow. It falls through to <span class="pill ask">ask</span>. At no point did the
+  code look up what the model chose and simply do that.</p>
+  <p>Next, point out that the thresholds are lopsided: <b>0.55 to deny, 0.85 to allow.</b> A wrong
+  deny is cheap, because the developer can run the command themselves. A wrong allow is expensive,
+  because the command has already run. Any pair of thresholds encodes some view of those costs, and
+  this pair states it openly.</p>
+  <p>Last, the read-only fast path, which is there for speed and privacy. An agent session makes
+  dozens of <code>view</code> and <code>grep</code> calls. Sending each one to a remote model would
+  add latency to every read and send your repository paths to an external API, without changing a
+  single decision.</p>
 </div>
 
 <h3>Why anchored regexes and not substring matching</h3>
@@ -929,21 +958,23 @@ wrong in <em>both</em> directions, which is why every rule is an anchored regex:
 
 <div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
-  <p>This table is the single best argument in the repo for writing security rules as code with tests
-  rather than as a list of strings in a config file. Four of these five rows are false positives that a
-  substring blocklist produces on completely ordinary developer commands. A policy that denies
-  <code>dotnet format</code> and <code>grep OnShutdownAsync</code> gets turned off by the team within a week,
-  and then you have no policy at all.</p>
-  <p>The <code>--force-with-lease</code> row is the interesting one, because it is a deliberate <em>choice</em>
-  rather than a limitation. Plain <code>--force</code> is hard-denied because it silently discards other
-  people's commits. <code>--force-with-lease</code> refuses to run if the remote moved, so it is a
-  legitimate tool that a developer should be allowed to use with approval. It falls through to
-  <span class="pill ask">ask</span>. Someone will challenge this in Q and A; the answer is that the
-  regex explicitly uses a negative lookahead, <code>--force(?!-with-lease)</code>, so the distinction is
-  in the code and pinned by a test.</p>
-  <p>Finally, be honest about the limit. A regex is not a shell parser. <code>rm $VAR</code>,
-  base64-encoded payloads, and creative quoting are all outside its reach. That is stated plainly in
-  <code>docs/SECURITY.md</code>, and it is why this layer is one of seven rather than the whole design.</p>
+  <p>Introduce the table with a question: what is wrong with a blocklist of strings? Then let the rows
+  answer it. Four of the five are false positives that a substring rule produces on completely
+  ordinary developer commands.</p>
+  <p>That matters more than it looks. A policy that blocks <code>dotnet format</code> and <code>grep
+  OnShutdownAsync</code> gets switched off by the team within a week, and then there is no policy at
+  all. A rule that fires on the wrong things does not stay in place for long.</p>
+  <p>Save the <code>--force-with-lease</code> row for last, because it was a choice rather than a gap.
+  Plain <code>--force</code> is hard-denied because it silently throws away other people's commits.
+  <code>--force-with-lease</code> refuses to run if the remote has moved, so it is a reasonable thing
+  for a developer to do with approval, and it falls through to <span class="pill ask">ask</span>.
+  Someone usually challenges this in Q&amp;A. The answer is that the regex uses a negative lookahead,
+  <code>--force(?!-with-lease)</code>, so the distinction is written in the code and pinned by a
+  test.</p>
+  <p>Then be honest about the limit. A regex is not a shell parser. <code>rm $VAR</code>,
+  base64-encoded payloads, and creative quoting are all out of its reach.
+  <code>docs/SECURITY.md</code> says so plainly, and it is why this layer is one of seven rather than
+  the whole design.</p>
 </div>
 
 <h3>Every rule is pinned in both directions</h3>
@@ -986,17 +1017,19 @@ the <code>model</code> field, and changes <em>no gate decision at all</em>.</p>
 
 <div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
-  <p>Read one <code>PASS</code> from each half out loud. Every deterministic rule has a command that
-  <em>must</em> match and a benign command that <em>must not</em>. That two-sided pinning is what makes
-  loosening a rule a visible change in a pull request: if you widen a regex to let something through,
-  you break the negative test, and the reviewer sees it.</p>
-  <p>Note the credential tests match on <em>shape</em>, not only on keywords: <code>ghp_</code>,
-  <code>AKIA</code>, <code>sk-</code>, <code>xox</code>, PEM headers. That catches a literal secret pasted
-  into tool arguments with no surrounding word like "password." It is still not a secret scanner, and the
-  docs say so.</p>
-  <p>The self-test project is dependency-free on purpose. It is a plain console app with a tiny
-  <code>Check</code> helper, not xUnit. That keeps the offline path buildable with zero test-framework
-  packages, which matters for the restricted-network story.</p>
+  <p>You do not need to read this list; the audience can watch it scroll. Pick one <code>PASS</code>
+  from each half and read those two out loud: a command that must match, and a harmless command that
+  must not.</p>
+  <p>That pairing is the reason the list exists. Every deterministic rule has a test in both
+  directions, so loosening a rule shows up in a pull request. Widen a regex to let something through
+  and the negative test breaks, and the reviewer sees it.</p>
+  <p>Point out that the credential tests match on the <em>shape</em> of a secret, not only on
+  keywords: <code>ghp_</code>, <code>AKIA</code>, <code>sk-</code>, <code>xox</code>, PEM headers.
+  That catches a real token pasted into tool arguments with no word like "password" anywhere near it.
+  It is still not a secret scanner, and the docs say that too.</p>
+  <p><b>If someone asks</b> why there is no xUnit: the self-test project is a plain console app with a
+  small <code>Check</code> helper, and it has no dependencies on purpose. The offline path builds with
+  zero test-framework packages, which keeps the restricted-network story true.</p>
 </div>
 
 <h2 id="step5"><span class="stepnum">5</span>Levels 8 and 9: the gate as a hook decision <a class="runlive" href="http://127.0.0.1:5088/#level8" title="Open level 8 in the interactive demo UI">Run level 8 live</a> <a class="runlive" href="http://127.0.0.1:5088/#level9" title="Open level 9 in the interactive demo UI">Run level 9 live</a></h2>
@@ -1026,23 +1059,24 @@ hook decisions without starting Copilot.</p>
 
 <div class="notes" data-level="8 9">
   <div class="label">Presenter note</div>
-  <p>The most interesting demonstration in this section is not in the default output. Run the same
-  <code>edit</code> tool twice with different semantic content and show that the decision changes:</p>
+  <p>Up to now the gate has been fed tidy examples. Levels 8 and 9 feed it input shaped like real
+  Copilot hook payloads, so you can show hook decisions without starting Copilot.</p>
+  <p>The default output is useful but predictable. The moment that really lands is one you set up
+  yourself: run the same <code>edit</code> tool twice, with different content.</p>
   <ul>
-    <li><code>edit</code> with <code>"change":"replace retry policy"</code> gives
+    <li><code>edit</code> with <code>"change":"replace retry policy"</code> comes back
     <span class="pill ask">ask</span> at confidence 0.76.</li>
-    <li><code>edit</code> with <code>"change":"update authentication middleware"</code> gives
-    <span class="pill deny">deny</span> at confidence 0.94, and critically the reason is
-    <em>not</em> "Deterministic policy ..." It came from Jev.</li>
+    <li><code>edit</code> with <code>"change":"update authentication middleware"</code> comes back
+    <span class="pill deny">deny</span> at confidence 0.94. Read the reason aloud: it does
+    <em>not</em> start with "Deterministic policy". That deny came from Jev.</li>
   </ul>
-  <p>That is the payoff for the whole first half of the talk. Same tool, same file, no regex matched,
-  and the decision differs because of what the change <em>means</em>. That is exactly the class of
-  judgment a regex cannot make and a full planning LLM is too slow and too unbounded to make on every
-  tool call.</p>
-  <p>There is a self-test asserting precisely this, named "semantic high risk is still Jev-governed, not
-  hard-denied," which additionally asserts that the reason string does <em>not</em> start with
-  "Deterministic policy." That is a test of the explanation, not just the decision, and it is worth
-  calling out as a pattern: if your policy engine returns reasons to humans, test the reasons.</p>
+  <p>This is the payoff for the first half of the talk. Same tool, same file, no regex matched, and
+  the decision is different because of what the change <em>means</em>. A regex cannot make that call,
+  and a full planning model is too slow and too open-ended to make it on every tool call.</p>
+  <p>With a developer audience, mention the self-test behind it: "semantic high risk is still
+  Jev-governed, not hard-denied". It also checks that the reason does <em>not</em> start with
+  "Deterministic policy", so it tests the explanation as well as the decision. If your policy engine
+  gives reasons to people, test the reasons.</p>
 </div>
 
 <h2 id="step6"><span class="stepnum">6</span>Test the hook without starting Copilot</h2>
@@ -1153,27 +1187,29 @@ Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
 
 <div class="notes" data-level="8">
   <div class="label">Presenter note</div>
-  <p>Point out that four of these ten samples are <em>regression</em> cases. They exist because an
-  earlier, more naive version of the rule got them wrong. Each sample file even carries a
-  <code>note</code> field explaining the mistake it prevents. That is a good pattern to copy wholesale:
-  a policy corpus where each case documents the bug it was born from.</p>
-  <p>The last three rows are the subtlest group in the repo and reward slowing down.</p>
-  <p><code>jev-tool</code> must be <span class="pill allow">allow</span> because of an interaction most
-  people do not anticipate: the Copilot runtime that Microsoft Agent Framework spawns runs in this
-  repository's working directory, so it loads this repository's <code>.github/hooks/jev-policy.json</code>
-  too. That means the hook sees the <code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code>
-  functions that <em>the host itself registered</em>. Without the narrow exemption in the gate, the
-  repository's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a
-  fail-closed hook error.</p>
-  <p><code>laya-tool</code> is the same case under the other engine. The function tools are named after
-  the selected provider, so the agent calls <code>laya_noul</code> rather than <code>jev_noul</code> when
-  it is running against Laya, and the hook - a separate process that cannot know which provider was
-  selected - has to allow both prefixes.</p>
-  <p><code>jev-tool-with-secret</code> is the guard on that exemption. Its payload carries
-  <code>Authorization: Bearer abc123</code> inside the decision call's own state argument. Because the
-  credential layer runs <em>before</em> the exemption, it still returns <span class="pill ask">ask</span>
-  and the secret is never forwarded. Ordering inside the gate is load-bearing, and this sample is what
-  stops someone from reordering it during a refactor.</p>
+  <p>Frame the sample table as a bit of history. Four of the ten samples are regressions: each one
+  exists because an earlier, simpler version of a rule got it wrong. Every sample file has a
+  <code>note</code> field describing the mistake it prevents. That habit is worth copying outright, a
+  policy test corpus where each case records the bug it came from.</p>
+  <p>Then take the last three rows more slowly. They are the subtlest part of the repository, and they
+  are where people's picture of the hook usually breaks down.</p>
+  <p><code>jev-tool</code> has to be <span class="pill allow">allow</span> because of something most
+  people do not see coming. The Copilot runtime that Microsoft Agent Framework starts runs in this
+  repository's working directory, so it loads this repository's
+  <code>.github/hooks/jev-policy.json</code> too. The hook therefore sees the <code>jev_noul</code> /
+  <code>jev_choice</code> / <code>jev_score</code> calls that <em>the host itself registered</em>.
+  Without a narrow exemption in the gate, the repository's own hook would deny the agent's own
+  decision calls, and levels 6, 7, and 10 would fail with a fail-closed hook error.</p>
+  <p><code>laya-tool</code> is the same case for the other engine. The function tools are named after
+  the selected provider, so under Laya the agent calls <code>laya_noul</code> instead of
+  <code>jev_noul</code>. The hook runs in a separate process and has no way of knowing which provider
+  was picked, so it allows both prefixes.</p>
+  <p><code>jev-tool-with-secret</code> keeps that exemption honest. Its payload has
+  <code>Authorization: Bearer abc123</code> inside the decision call's own state argument. The
+  credential check runs <em>before</em> the exemption, so the answer is still
+  <span class="pill ask">ask</span> and the secret goes nowhere. The order of the checks inside the
+  gate matters, and this sample is what stops someone from quietly reordering them during a
+  refactor.</p>
 </div>
 
 <h2 id="step7"><span class="stepnum">7</span>Run the real Copilot CLI hook</h2>
@@ -1250,27 +1286,29 @@ existing shell or <code>.env</code> keeps working rather than silently falling b
 
 <div class="notes" data-level="8">
   <div class="label">Presenter note</div>
-  <p>There are three failure-semantics facts in this section, and they are the most transferable content
-  in the entire repository. Anyone building an agent hook needs all three.</p>
-  <p><b>1. A crash or non-zero exit fails closed.</b> Copilot treats it as deny. Sounds safe, and it is,
-  but the failure mode is brutal: <em>every</em> tool call in the session is denied and the user has no
-  idea why. This is exactly why the Windows hook entry keeps
-  <code>-ExecutionPolicy Bypass -File</code>. A default Windows execution policy refuses to load an
-  unsigned <code>.ps1</code>, PowerShell exits non-zero, and the session silently becomes unusable. Both
-  wrapper scripts therefore always exit 0 and print a decision object even when they cannot do their job.</p>
-  <p><b>2. A hook timeout fails OPEN.</b> Copilot falls back to its normal permission flow. This is the
-  one failure mode that can let something through, so the adapter refuses to depend on the outer timeout
-  at all. It starts its own <code>CancellationTokenSource</code> covering stdin reading and the entire
-  gate evaluation, and converts expiry into an explicit <span class="pill ask">ask</span>. The nesting is
-  deliberate: <b>2s live HTTP cap &lt; 4s <code>DECISION_HOOK_DEADLINE_MS</code> &lt; 8s
-  <code>timeoutSec</code>.</b> If you change one number, change the others.</p>
-  <p><b>3. Under Copilot's cloud agent there is nobody to answer <code>ask</code>, so ask is treated as
-  deny.</b> The pleasant consequence is that a policy tuned for interactive use is strictly more
-  restrictive in the cloud, never less. Worth stating explicitly, because the instinct is to assume the
-  unattended path is the risky one.</p>
-  <p>If you want one live moment that sells the whole design: run the session, ask Copilot to force push,
-  and let the audience watch the deny come back in a few milliseconds with a human-readable reason. Then
-  point out that no model was consulted for that decision.</p>
+  <p>This is the part people remember, so set it up properly. Until now everything has run in a
+  console. Here the same gate sits inside a live Copilot CLI session and decides, as it happens,
+  whether the agent's next tool call runs.</p>
+  <p>Before you start the session, give them three facts about how hooks fail. They apply to anyone
+  building an agent hook, whatever their stack.</p>
+  <p><b>1. A crash or non-zero exit fails closed.</b> Copilot treats it as deny. That sounds safe, and
+  it is, but it is miserable in practice: <em>every</em> tool call in the session is denied and the
+  user has no idea why. That is why the Windows hook entry keeps <code>-ExecutionPolicy Bypass
+  -File</code>. A default Windows execution policy refuses to load an unsigned <code>.ps1</code>,
+  PowerShell exits non-zero, and the session becomes unusable without a word of explanation. Both
+  wrapper scripts always exit 0 and print a decision, even when they cannot do their job.</p>
+  <p><b>2. A hook timeout fails open.</b> Copilot falls back to its normal permission flow. This is
+  the one failure that can let something through, so the adapter does not rely on the outer timeout at
+  all. It starts its own <code>CancellationTokenSource</code> covering both reading stdin and the
+  whole gate evaluation, and turns expiry into an explicit <span class="pill ask">ask</span>. The
+  timeouts nest on purpose: <b>2s live HTTP cap &lt; 4s <code>DECISION_HOOK_DEADLINE_MS</code> &lt; 8s
+  <code>timeoutSec</code>.</b> Change one and you need to change the others.</p>
+  <p><b>3. Under Copilot's cloud agent there is nobody to answer <code>ask</code>, so ask is treated
+  as deny.</b> People tend to assume the unattended path is the risky one. Here it works the other
+  way: a policy tuned for interactive use gets stricter in the cloud, never looser.</p>
+  <p>Then do the live moment. Start the session, ask Copilot to force push, and let the room watch the
+  deny come back in a few milliseconds with a plain-English reason. Pause, and tell them that no model
+  was consulted for that decision.</p>
 </div>
 
 <h3>The hook contract, precisely</h3>
@@ -1293,17 +1331,19 @@ existing shell or <code>.env</code> keeps working rather than silently falling b
 
 <div class="notes" data-level="8">
   <div class="label">Presenter note</div>
-  <p>"Exactly one JSON object" is not stylistic advice. Two objects printed back to back concatenate into
-  invalid JSON and the whole decision is discarded. The adapter has a single <code>Emit</code> helper and
-  every code path calls it exactly once, including both catch blocks.</p>
-  <p>Also note <code>NormalizeToolName</code> in <code>Program.cs</code>. Different agent CLIs name the
-  same primitives differently (<code>read</code> vs <code>view</code>, <code>shell</code> vs
-  <code>bash</code>, <code>str_replace</code> vs <code>edit</code>). Normalizing at the boundary is what
-  keeps the read-only fast path meaningful across hosts, and it means porting this hook to another agent
-  runtime is mostly a matter of extending one switch expression.</p>
-  <p>Finally: the reason string is part of the contract, not decoration. It is what the developer sees
-  when their command is blocked. A policy that says "denied" with no reason gets disabled; one that says
-  "deterministic policy matched a destructive command pattern" gets understood.</p>
+  <p>With a developer audience, stay here for a minute. The contract is small, and each rule in it
+  protects against a specific failure.</p>
+  <p>"Exactly one JSON object" is a hard requirement. Two objects printed back to back make invalid
+  JSON, and the whole decision is thrown away. The adapter has a single <code>Emit</code> helper, and
+  every code path, including both catch blocks, calls it exactly once.</p>
+  <p>Show <code>NormalizeToolName</code> in <code>Program.cs</code>. Different agent CLIs call the
+  same operations by different names: <code>read</code> or <code>view</code>, <code>shell</code> or
+  <code>bash</code>, <code>str_replace</code> or <code>edit</code>. Normalizing at the boundary keeps
+  the read-only fast path working across hosts, and it means porting the hook to another agent runtime
+  is mostly a matter of extending one switch expression.</p>
+  <p>Finish on the reason string. It is what a developer reads when their command is blocked, so it is
+  part of the contract. A policy that just says "denied" gets disabled. One that says "deterministic
+  policy matched a destructive command pattern" gets understood.</p>
 </div>
 
 <h2 id="step8"><span class="stepnum">8</span>Levels 6 and 7: decisions as Agent Framework function tools <a class="runlive" href="http://127.0.0.1:5088/#level6" title="Open level 6 in the interactive demo UI">Run level 6 live</a> <a class="runlive" href="http://127.0.0.1:5088/#level7" title="Open level 7 in the interactive demo UI">Run level 7 live</a></h2>
@@ -1378,21 +1418,22 @@ cannot confuse them either:</p>
 
 <div class="notes" data-level="6 7">
   <div class="label">Presenter note</div>
-  <p>The contrast between level 5 and level 6 is the one to draw here, because it is a genuine
-  architectural fork rather than an incremental step.</p>
-  <p>In level 5 <em>your code</em> decided when to consult Jev. In level 6 <em>the agent</em> decides,
-  because Jev is now a tool declaration in its context window. You have traded determinism for
-  flexibility. Both are legitimate; they answer different questions. Use the tool form when the agent is
-  doing the reasoning and needs a bounded sub-judgment. Use the gate form when you are enforcing policy,
-  because policy must not be optional.</p>
-  <p>Level 7's prompt asks the agent to both classify (Choice) and score (Score) the same task, which
-  shows composition. The system instructions explicitly tell it to use ordinary reasoning for arithmetic
-  and deterministic facts. That guardrail is important: the failure mode of giving a model a "decide"
-  tool is that it starts routing everything through it, including questions it could answer exactly.</p>
-  <p>One operational note worth saying while it runs: the first invocation is slow because the Copilot
-  runtime has to start. If it fails, the level runner catches the exception and prints "Level N needs a
-  working, authenticated GitHub Copilot runtime," rather than dumping a stack trace. With
-  <code>--all --include-agent</code> it records a non-zero exit code and keeps going.</p>
+  <p>Tell the audience the talk is changing direction. Everything so far has been about code calling
+  the engine. From here on, the agent calls it.</p>
+  <p>This is a fork in the design rather than another step along the same road. In level 5, <em>your
+  code</em> decided when to consult Jev. In level 6, <em>the agent</em> decides, because Jev is now a
+  tool declaration in its context window. You have given up determinism in exchange for flexibility.
+  Both are reasonable, and they answer different questions. Use the tool form when the agent is doing
+  the reasoning and needs a bounded judgment along the way. Use the gate form when you are enforcing
+  policy, because policy cannot be optional.</p>
+  <p>Level 7 asks the agent to classify the same task with a Choice and rate it with a Score, so you
+  can show the tools being combined. Point at the system instructions, which tell it to use ordinary
+  reasoning for arithmetic and plain facts. That line matters. Give a model a "decide" tool and it
+  tends to send everything through it, including questions it could answer exactly on its own.</p>
+  <p>While it runs, warn them that the first call is slow because the Copilot runtime has to start. If
+  it fails, the level runner catches the error and prints "Level N needs a working, authenticated
+  GitHub Copilot runtime" instead of a stack trace. With <code>--all --include-agent</code> it records
+  a non-zero exit code and moves on.</p>
 </div>
 
 <h2 id="step9"><span class="stepnum">9</span>Level 10, the skill, and the custom agent <a class="runlive" href="http://127.0.0.1:5088/#level10" title="Open level 10 in the interactive demo UI">Run level 10 live</a></h2>
@@ -1449,21 +1490,22 @@ question and call the appropriate tool; otherwise explain why not.</code></pre>
 
 <div class="notes" data-level="10">
   <div class="label">Presenter note</div>
-  <p>Level 10 is the only level where "the agent chose not to use the tool" is a <em>passing</em> result.
-  Say that before you run it, so the audience is watching for the right thing. A test-suite scoping
-  question is partly deterministic (the compiler and the reference graph know who touches that property),
-  so an agent that answers "I can determine this by inspection" has understood the lesson better than one
-  that reflexively calls <code>jev_score</code>.</p>
-  <p>Note the division of labour between the two files, because people conflate them. The <b>skill</b> is
-  knowledge: when this primitive is appropriate and how to shape the question. The <b>custom agent</b> is
-  a persona plus tool configuration. The skill is reusable by any agent; the agent profile is
-  repository-specific.</p>
-  <p>Worth calling out explicitly: <code>jev-engineer.agent.md</code> declares <code>tools: ["*"]</code>
-  but that is <em>not</em> a security hole, and explaining why demonstrates that the layering actually
-  works. The agent profile grants tool availability; the <code>preToolUse</code> hook still sits in the
-  normal lifecycle and still gates every call. Capability and authorization are separate concerns, and
-  this repo keeps them in separate files. The agent profile even instructs the agent not to edit around
-  or disable the hook, and <code>copilot-instructions.md</code> repeats that at the repository level.</p>
+  <p>Set expectations before you run it, or the audience will watch for the wrong thing. Level 10 is
+  the only level where "the agent decided not to use the tool" counts as a pass.</p>
+  <p>The question is about scoping a test run, and a good part of it can be answered exactly: the
+  compiler and the reference graph know what touches that property. An agent that says "I can work
+  this out by inspection" has understood the lesson better than one that reaches for
+  <code>jev_score</code> out of habit.</p>
+  <p>Then explain the two checked-in files, because people mix them up. The <b>skill</b> is knowledge:
+  when this primitive is the right one and how to shape the question. The <b>custom agent</b> is a
+  persona plus a tool configuration. Any agent can reuse the skill; the agent profile belongs to this
+  repository.</p>
+  <p>Someone will notice that <code>jev-engineer.agent.md</code> declares <code>tools: ["*"]</code>.
+  Welcome the question, because the answer shows the layers doing their job. The agent profile decides
+  which tools are available. The <code>preToolUse</code> hook still sits in the normal lifecycle and
+  still gates every call. What an agent can do and what it is allowed to do live in separate files.
+  The profile also tells the agent not to edit around or disable the hook, and
+  <code>copilot-instructions.md</code> says the same at repository level.</p>
 </div>
 
 <h2 id="step10"><span class="stepnum">10</span>Switch to a live engine</h2>
@@ -1501,22 +1543,22 @@ copilot</code></pre>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Two things change the moment you go live, and both are worth naming before someone discovers them in
-  production.</p>
-  <p><b>Determinism disappears.</b> The mock returns 0.94 for High every single time. A real model does
-  not. Run level 4 twice in live mode and the numbers move. This is why the thresholds in
-  <code>CopilotToolGate</code> have margin built in rather than sitting at 0.50, and it is why the same
-  ambiguous command can produce <span class="pill ask">ask</span> on one run and
-  <span class="pill allow">allow</span> on the next if you set the bar too close to the noise floor.</p>
-  <p><b>Your tool arguments leave the machine.</b> That is precisely what the credential layer is
-  defending against, and it is also the question to put to any organization adopting this pattern: is a
-  remote model call permitted for the data being evaluated at all? For some repositories the honest
-  answer is no, and <code>DECISION_MODE=off</code> plus the deterministic layers is the correct
-  deployment. The repo supports that mode as a first-class option rather than a degraded one - and a
-  self-hosted Laya container, covered next, is the other answer to the same objection.</p>
-  <p><code>DECISION_MODE=auto</code> is the pragmatic middle for shared configuration: live when the
-  provider is configured, <code>off</code> when it is not, and never an accidental hard failure because
-  someone cloned the repo without a key.</p>
+  <p>Everything so far has used the mock. Before you switch to a real engine, tell the audience that
+  two things are about to change, so they hear it from you and not from production later.</p>
+  <p><b>The numbers stop repeating.</b> The mock returns 0.94 for High every time. A real model does
+  not. Run level 4 twice in live mode and the values move. That is why the thresholds in
+  <code>CopilotToolGate</code> sit well away from 0.50, and why an ambiguous command can come back
+  <span class="pill ask">ask</span> on one run and <span class="pill allow">allow</span> on the next
+  if the bar is set too close to the noise.</p>
+  <p><b>Your tool arguments leave the machine.</b> That is exactly what the credential layer guards
+  against, and it raises the question any organization adopting this should ask first: is a remote
+  model call allowed for this data at all? For some repositories the honest answer is no. For those,
+  <code>DECISION_MODE=off</code> with the deterministic layers is the right deployment, and the
+  repository treats it as a full option rather than a fallback. A self-hosted Laya container, coming
+  up next, is the other answer to the same question.</p>
+  <p>Mention <code>DECISION_MODE=auto</code> for shared configuration. It goes live when the provider
+  is configured and stays <code>off</code> when it is not, so nobody hits a hard failure just because
+  they cloned the repository without a key.</p>
 </div>
 
 <hr>
@@ -1647,19 +1689,19 @@ volumes:
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Do not skim the sandboxing block. This container runs model code downloaded from the internet,
-  and the whole reason an organization reaches for a local engine is that it does not want tool
-  arguments leaving the machine. A container that can write the host filesystem or open outbound
-  connections gives back most of what you came for.</p>
-  <p>The four that matter: <code>read_only: true</code> with a <code>noexec</code> tmpfs means
-  nothing downloaded at runtime can be written and then executed; <code>cap_drop: ALL</code> plus
-  <code>no-new-privileges</code> removes the escalation paths; the loopback-only port binding means
-  nothing on the LAN can reach an unauthenticated inference API; and the memory and pid limits stop
-  a runaway checkpoint load from taking the host down with it.</p>
-  <p>The port comment is a real Windows story rather than a preference. <code>http.sys</code>
-  reserves 8000 on many Windows machines, so the container listens on 8000 <em>inside</em> and
-  publishes 8010 <em>outside</em>. That is why <code>SystemOneEndpoint.DefaultLayaBaseAddress</code>
-  is <code>http://127.0.0.1:8010/</code> and not the port the upstream README shows.</p>
+  <p>It is tempting to scroll past a compose file. Stop at the sandboxing block instead. An
+  organization usually wants a local engine because tool arguments must not leave the machine. This
+  container runs model code downloaded from the internet, and if it can write to the host or open
+  outbound connections, most of that benefit is gone.</p>
+  <p>Walk through four settings. <code>read_only: true</code> with a <code>noexec</code> tmpfs means
+  nothing downloaded at runtime can be written and then run. <code>cap_drop: ALL</code> with
+  <code>no-new-privileges</code> removes the ways to escalate. The loopback-only port binding means
+  nothing else on the network can reach an inference API that has no authentication. The memory and
+  pid limits stop a runaway checkpoint load from taking the host down with it.</p>
+  <p><b>If someone asks</b> why the port is 8010: on many Windows machines <code>http.sys</code>
+  reserves 8000, so the container listens on 8000 <em>inside</em> and publishes 8010 <em>outside</em>.
+  That is why <code>SystemOneEndpoint.DefaultLayaBaseAddress</code> is
+  <code>http://127.0.0.1:8010/</code> rather than the port in the upstream README.</p>
 </div>
 
 <h3>11.3 Start it and wait for <code>/health</code></h3>
@@ -1782,14 +1824,18 @@ human, which is the correct outcome for an answer this undecided.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Be straightforward about accuracy, because someone will check. Upstream reports 0.362 accuracy
-  for the base English checkpoint on its own typed-decisions benchmark against 0.766 for the
-  fine-tuned <code>laya-typed-decisions</code> checkpoint. Those are zero-shot numbers on a hard
-  task, and they are the reason this repository never lets a single model answer authorize anything.</p>
-  <p>The transferable conclusion is not "Laya is weak." It is that for a real policy gate,
-  fine-tuning on <em>your own</em> decisions matters far more than which engine you picked, and that
-  a layered design stays safe while the model underneath it is still bad. Treat every threshold in
-  this repository as a starting point to re-validate on your own traffic.</p>
+  <p>You have just shown an open-source model answer <code>allow</code> for a force push to main.
+  Leave a pause before you say anything. It is the strongest evidence in the talk for letting code,
+  and not the model, have the final word.</p>
+  <p>Then be straight about accuracy, because someone in the room will look it up. Upstream reports
+  0.362 accuracy for the base English checkpoint on its own typed-decisions benchmark, against 0.766
+  for the fine-tuned <code>laya-typed-decisions</code> checkpoint. Those are zero-shot numbers on a
+  hard task, and they are why this repository never lets a single model answer authorize anything.</p>
+  <p>Be careful how you land it, though. Avoid leaving them with "Laya is weak". The better takeaway
+  is that for a real policy gate, fine-tuning on <em>your own</em> decisions matters far more than
+  which engine you picked, and that a layered design stays safe while the model underneath it is still
+  poor. Every threshold in this repository is a starting point to re-check against your own
+  traffic.</p>
 </div>
 
 <h3>11.5 Run the levels against the live container</h3>
@@ -2028,19 +2074,20 @@ provider-specific code beyond the display name in its reason strings.</p>
 
 <div class="notes" data-level="9">
   <div class="label">Presenter note</div>
-  <p>If you only have time for one slide about the provider work, make it this one, and frame it as a
-  bug that was <em>designed out</em> rather than a feature that was added. The tempting
-  implementation reads the field called <code>confidence</code>, because that is what it is called.
-  It would have passed every test on Jev, passed code review, and quietly gated differently the day
-  someone set <code>DECISION_PROVIDER=laya</code>.</p>
-  <p>What prevented it was not care, it was structure: one record holding every provider difference,
-  one client that reads it, policy code that is not allowed to know which provider it is on, and a
-  self-test that enumerates decisions under both. Any of the four alone would have been insufficient.</p>
-  <p>The second thing to say out loud is the adoption argument. Data residency is usually the reason
-  a client cannot adopt an agent policy hook at all: tool arguments contain source, paths, and
-  repository structure, and a hosted call publishes all of it. A local engine answers that objection
-  without changing one line of policy code. Be honest about the limits - the credential check still
-  runs first, because "local" is not "safe to log", and the shipped checkpoints are zero-shot.</p>
+  <p>If you only have time for one slide on the provider work, use this one, and tell it as the story
+  of a bug that never shipped.</p>
+  <p>The obvious implementation reads the field called <code>confidence</code>, because that is its
+  name. It would have passed every test against Jev, passed code review, and then quietly started
+  gating differently the day someone set <code>DECISION_PROVIDER=laya</code>.</p>
+  <p>Care is not what prevented it. Structure did: one record holding every difference between
+  providers, one client that reads it, policy code that is not allowed to know which provider it is
+  running on, and a self-test that checks every decision under both. Any one of those on its own would
+  not have been enough.</p>
+  <p>Then make the adoption argument. Data residency is often the reason a client cannot adopt an
+  agent policy hook at all: tool arguments contain source code, paths, and repository structure, and a
+  hosted call sends all of it to someone else. A local engine removes that objection without changing
+  a line of policy code. Be honest about the limits here too. The credential check still runs first,
+  because "local" does not mean "safe to log", and the shipped checkpoints are zero-shot.</p>
 </div>
 
 <hr>
@@ -2139,13 +2186,13 @@ and in CI. Policy never reads it.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Keep this table open on a second screen during a live demo. It lets you answer "why did it say 0.76?"
-  instantly and with confidence, which is the difference between a demo that looks engineered and one that
-  looks lucky.</p>
-  <p>It also makes the mock <em>pedagogically</em> useful rather than merely convenient. The Medium
-  band puts 0.76 on <code>ask</code>, which leaves only 0.12 on <code>allow</code> - far below the gate's
-  0.85 allow-mass threshold - so you can demonstrate the threshold arithmetic live and it lands the same
-  way every time, on either provider.</p>
+  <p>Keep this table open on a second screen during a live demo. When someone asks "why did it say
+  0.76?", you can answer straight away, and that is the difference between a demo that looks
+  engineered and one that looks lucky.</p>
+  <p>It also explains why the mock is a teaching tool and not just a convenience. The Medium band puts
+  0.76 on <code>ask</code>, which leaves 0.12 on <code>allow</code>, far below the gate's 0.85 allow
+  threshold. So you can do the threshold arithmetic live, and it comes out the same every time, on
+  either provider.</p>
 </div>
 
 <h2 id="troubleshoot">Troubleshooting</h2>
@@ -2233,12 +2280,12 @@ and in CI. Policy never reads it.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Rows three and four are the two failure modes that deserve a live rehearsal before any demo, because
-  they are indistinguishable from "the demo is broken" and they fail in opposite directions.</p>
-  <p>If the hook exits non-zero, Copilot denies everything and the session appears to be catatonic. If the
-  hook is simply unbuilt, every call becomes an approval prompt and the session appears to be paranoid.
-  Both look like the tool is broken rather than the setup being wrong. Pipe one sample payload through the
-  wrapper before you present, and you will know in two seconds which world you are in.</p>
+  <p>Rehearse rows three and four before any demo. Both look like "the demo is broken" rather than
+  "the setup is wrong", and they fail in opposite directions.</p>
+  <p>If the hook exits non-zero, Copilot denies everything and the session looks frozen. If the hook
+  was never built, every call turns into an approval prompt and the session looks paranoid. Pipe one
+  sample payload through the wrapper before you go on stage, and within two seconds you will know
+  which of those you are in, if either.</p>
 </div>
 
 <h2 id="hardening">Production hardening</h2>
@@ -2295,22 +2342,22 @@ work through this list:</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Close on the honest version, because credibility is worth more than a clean ending: this is a
-  <em>teaching</em> repository and the README says so in the first line. What transfers to production is
-  not the code, it is the four structural decisions.</p>
+  <p>This is a good place to close, and the honest ending is the stronger one. This is a
+  <em>teaching</em> repository, and the README says so in its first line. What carries over to
+  production is four design decisions rather than the code itself.</p>
   <ol>
-    <li><b>Layer order</b>: deterministic rules before the model, always. The model gets the ambiguous
-    middle and nothing else.</li>
-    <li><b>Ownership</b>: thresholds are C# literals in version control, reviewed in pull requests, not
-    prose inside a prompt.</li>
-    <li><b>Failure direction</b>: every degraded path lands on "ask a human," and the one failure mode
-    that fails open is defended against by an inner deadline rather than trusted.</li>
-    <li><b>Two-sided tests</b>: every rule has a command that must match and a benign command that must
-    not, so loosening a rule is visible in a diff.</li>
+    <li><b>Layer order.</b> Deterministic rules run before the model, every time. The model gets the
+    ambiguous middle and nothing else.</li>
+    <li><b>Ownership.</b> Thresholds are C# literals in version control, reviewed in pull requests,
+    not prose inside a prompt.</li>
+    <li><b>Failure direction.</b> Every degraded path ends at "ask a person", and the one failure that
+    fails open is covered by an inner deadline instead of being trusted.</li>
+    <li><b>Tests in both directions.</b> Every rule has a command that must match and a harmless one
+    that must not, so loosening a rule shows up in a diff.</li>
   </ol>
-  <p>Those four hold regardless of whether you use Jev, Laya, a different model, or no model at all.
-  The provider switch in this repo is itself an instance of the second one: the difference between the
-  two engines is data in <code>SystemOneEndpoint</code>, not a branch in policy code.</p>
+  <p>All four hold whether you use Jev, Laya, a different model, or no model at all. The provider
+  switch is itself an example of the second one: the difference between the two engines is data in
+  <code>SystemOneEndpoint</code>, not a branch in the policy code.</p>
 </div>
 
 <h2 id="script">The 15-minute demo script</h2>
@@ -2368,14 +2415,14 @@ work through this list:</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Cut points, in order, if you are short on time: drop level 6 (level 7 subsumes it), then level 3
-  (mention Score rather than running it), then the live Copilot session. Never cut the level 5 threshold
-  arithmetic or the substring-versus-anchored table. Those two carry the argument; everything else is
-  supporting evidence.</p>
-  <p>If you have thirty minutes rather than fifteen, spend the extra time in two places: open
-  <code>CopilotToolGate.cs</code> and read the layer order top to bottom on screen, and open one sample
-  JSON file and read its <code>note</code> field. Both make the point that the policy is small enough for
-  a human to audit in full, which is itself a security property.</p>
+  <p>If you are short on time, cut in this order: level 6 first (level 7 covers it), then level 3
+  (describe Score instead of running it), then the live Copilot session. Do not cut the level 5
+  threshold arithmetic or the substring-versus-anchored table. Those two make the argument, and
+  everything else backs it up.</p>
+  <p>If you have thirty minutes instead of fifteen, spend the extra time in two places. Open
+  <code>CopilotToolGate.cs</code> and read the layer order top to bottom on screen. Then open one
+  sample JSON file and read its <code>note</code> field. Both show that the whole policy is small
+  enough for one person to read and check, and that is a security property in its own right.</p>
 </div>
 
 <div class="footer">

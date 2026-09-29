@@ -17,6 +17,10 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // service. Nothing here authenticates, and the hook panel starts processes.
 builder.WebHost.UseUrls("http://127.0.0.1:5088");
 
+// Refuses any other Host header, so a page that DNS-rebinds its own name to 127.0.0.1 cannot
+// reach these endpoints as same-origin, including the one that accepts an API key.
+builder.Configuration["AllowedHosts"] = "127.0.0.1;localhost";
+
 builder.Services.AddSingleton(new RepositoryContent(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton<TutorialNotes>();
 builder.Services.AddSingleton<HookRunner>();
@@ -29,14 +33,24 @@ WebApplication app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGet("/api/config", (RepositoryContent repository, HookRunner hook, TutorialNotes notes) => new ConfigResponse(
-    DecisionSession.Statuses(),
-    DecisionSession.DefaultProvider,
-    DecisionSession.DefaultMode,
-    hook.Available,
-    repository.CliAvailable,
-    notes.Available,
-    repository.Root));
+app.MapGet("/api/config", (RepositoryContent repository, HookRunner hook, TutorialNotes notes) =>
+    Config(repository, hook, notes));
+
+// The Config dialog. Both return the whole config so the page repaints the Live toggle from the
+// same answer that confirms the change. JSON only, which a cross-site form cannot send without a
+// CORS preflight this app never answers.
+app.MapPut("/api/credentials/jev", async (ApiKeyRequest request, RepositoryContent repository, HookRunner hook, TutorialNotes notes) =>
+    await Guarded(() =>
+    {
+        SessionCredentials.SetJevApiKey(request.ApiKey);
+        return Task.FromResult(Config(repository, hook, notes));
+    }));
+
+app.MapDelete("/api/credentials/jev", (RepositoryContent repository, HookRunner hook, TutorialNotes notes) =>
+{
+    SessionCredentials.ClearJevApiKey();
+    return Config(repository, hook, notes);
+});
 
 app.MapGet("/api/levels", (RepositoryContent repository, TutorialNotes notes) =>
     repository.Levels.Select(level => level with { Notes = notes.For(level.Number) }));
@@ -100,6 +114,16 @@ app.MapGet("/api/cli/stream", async (
 
 app.Run();
 
+static ConfigResponse Config(RepositoryContent repository, HookRunner hook, TutorialNotes notes) => new(
+    DecisionSession.Statuses(),
+    DecisionSession.DefaultProvider,
+    DecisionSession.DefaultMode,
+    hook.Available,
+    repository.CliAvailable,
+    notes.Available,
+    repository.Root,
+    SessionCredentials.JevApiKey());
+
 // A bad provider/mode combination or an empty question list is a presenter mistake, not a server
 // fault: it comes back as a 400 with the message the UI shows inline.
 static async Task<Results<Ok<T>, BadRequest<ProblemView>>> Guarded<T>(Func<Task<T>> work)
@@ -115,13 +139,34 @@ static async Task<Results<Ok<T>, BadRequest<ProblemView>>> Guarded<T>(Func<Task<
     catch (HttpRequestException ex)
     {
         return TypedResults.BadRequest(new ProblemView(
-            $"The live provider call failed: {ex.Message}"));
+            $"The live provider call failed: {Describe(ex)}"));
     }
     catch (TaskCanceledException)
     {
         return TypedResults.BadRequest(new ProblemView(
             "The live provider did not answer in time. A cold Laya container loads its checkpoint on the first request; try again, or switch to mock."));
     }
+}
+
+// HttpClient reports transport failures as "The SSL connection could not be established, see
+// inner exception." and puts the actual cause (a reset connection, an untrusted certificate, a
+// proxy refusing the tunnel) further down the chain. The page has no inner exception to see, so
+// the whole chain is flattened into the one line the presenter reads.
+static string Describe(Exception ex)
+{
+    var messages = new List<string>();
+    for (Exception? current = ex; current is not null; current = current.InnerException)
+    {
+        string message = current.Message
+            .Replace(", see inner exception.", ".", StringComparison.Ordinal)
+            .Trim();
+        if (message.Length > 0 && !messages.Contains(message, StringComparer.Ordinal))
+        {
+            messages.Add(message);
+        }
+    }
+
+    return string.Join(" ", messages);
 }
 
 internal sealed record ProblemView(string Error);

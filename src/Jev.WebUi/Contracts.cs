@@ -11,6 +11,14 @@ public sealed record ProviderStatus(
     bool LiveConfigured,
     string LiveHint);
 
+/// <summary>
+/// Whether an API key is set, and where it came from: <c>environment</c> when the UI was started
+/// with it, <c>page</c> when the presenter entered it in the Config dialog. Never the key itself.
+/// </summary>
+public sealed record ApiKeyStatus(bool Set, string? Source);
+
+public sealed record ApiKeyRequest(string? ApiKey);
+
 public sealed record ConfigResponse(
     IReadOnlyList<ProviderStatus> Providers,
     string DefaultProvider,
@@ -18,7 +26,8 @@ public sealed record ConfigResponse(
     bool HookAvailable,
     bool CliAvailable,
     bool TutorialAvailable,
-    string RepositoryRoot);
+    string RepositoryRoot,
+    ApiKeyStatus JevApiKey);
 
 public sealed record SourceFile(string Path, string Language, string Text);
 
