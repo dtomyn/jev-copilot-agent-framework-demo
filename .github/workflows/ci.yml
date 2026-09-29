@@ -1,0 +1,35 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: dotnet restore JevCopilotDemo.sln
+      - run: dotnet build JevCopilotDemo.sln -c Release --no-restore
+
+      - name: Self-tests
+        run: dotnet run --project tests/Jev.Core.SelfTests/Jev.Core.SelfTests.csproj -c Release --no-build
+
+      - name: Levels that need no Copilot runtime
+        run: dotnet run --project src/TenLevels.Jev -c Release --no-build -- --all
+
+      - name: Hook adapter (bash wrapper)
+        if: runner.os != 'Windows'
+        run: bash ./scripts/test-hook.sh
+
+      - name: Hook adapter (PowerShell wrapper)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-hook.ps1

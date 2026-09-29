@@ -1,0 +1,1 @@
+{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"view","toolArgs":{"path":"src/TenLevels.Jev/Program.cs"},"expectedDecision":"allow","note":"Read-only tool fast path; no Jev call."}

@@ -1,0 +1,1 @@
+{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"edit","toolArgs":{"path":"src/Service.cs","change":"replace retry policy"},"expectedDecision":"ask","note":"Ordinary repository mutation; Jev is not confident enough to clear the allow threshold."}

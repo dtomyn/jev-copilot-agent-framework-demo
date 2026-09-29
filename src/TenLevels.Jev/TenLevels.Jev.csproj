@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Jev.Core/Jev.Core.csproj" />
+    <PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
+  </ItemGroup>
+</Project>

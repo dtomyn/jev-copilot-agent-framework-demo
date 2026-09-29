@@ -1,0 +1,1 @@
+{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"jev_noul","toolArgs":{"state":"A PR changes authentication middleware and token refresh code.","question":"Is a security-focused review warranted?"},"expectedDecision":"allow","note":"The repo hook also sees the Jev function tools the Agent Framework levels register. Denying them would break levels 6, 7, and 10."}

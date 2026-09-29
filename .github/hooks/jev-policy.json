@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "bash ./scripts/jev-hook.sh",
+        "powershell": "$sh = if (Get-Command pwsh -ErrorAction SilentlyContinue) { \"pwsh\" } else { \"powershell\" }; & $sh -NoProfile -ExecutionPolicy Bypass -File ./scripts/jev-hook.ps1",
+        "cwd": ".",
+        "timeoutSec": 8
+      }
+    ]
+  }
+}

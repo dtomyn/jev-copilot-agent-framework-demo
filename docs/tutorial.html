@@ -1,0 +1,1623 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ten Levels of Jev - step-by-step tutorial with presenter notes</title>
+<style>
+:root{
+  --bg:#ffffff; --bg-alt:#f6f8fa; --bg-sunken:#eef1f5;
+  --fg:#1b1f24; --fg-muted:#5a6673; --fg-faint:#7d8794;
+  --border:#d8dee4; --border-strong:#c2cad3;
+  --accent:#1f6feb; --accent-soft:#ddeaff;
+  --allow:#1a7f37; --allow-bg:#e8f5ec;
+  --ask:#9a6700;  --ask-bg:#fdf5e2;
+  --deny:#cf222e; --deny-bg:#fdeceb;
+  --note-bg:#f5f0fd; --note-border:#8957e5; --note-fg:#3a2a5e;
+  --code-bg:#0f172a; --code-fg:#e2e8f0; --code-dim:#94a3b8;
+  --shadow:0 1px 2px rgba(27,31,36,.06),0 3px 10px rgba(27,31,36,.06);
+  --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --sidebar:292px;
+}
+html[data-theme="dark"]{
+  --bg:#0d1117; --bg-alt:#161b22; --bg-sunken:#010409;
+  --fg:#e6edf3; --fg-muted:#9198a1; --fg-faint:#6e7681;
+  --border:#30363d; --border-strong:#3d444d;
+  --accent:#4493f8; --accent-soft:#132a44;
+  --allow:#3fb950; --allow-bg:#12261a;
+  --ask:#d29922;  --ask-bg:#2b2413;
+  --deny:#f85149; --deny-bg:#2d1618;
+  --note-bg:#1b1630; --note-border:#a371f7; --note-fg:#d9cff2;
+  --code-bg:#010409; --code-fg:#e6edf3; --code-dim:#8b949e;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 3px 12px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:86px}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:10px 22px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.topbar .brand{font-weight:700;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+.topbar .brand span{color:var(--fg-muted);font-weight:500}
+.topbar .spacer{flex:1}
+.btn{font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:6px 12px;border-radius:7px;border:1px solid var(--border-strong);background:var(--bg-alt);color:var(--fg);transition:.15s;white-space:nowrap}
+.btn:hover{background:var(--accent-soft);border-color:var(--accent)}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+#progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--accent);z-index:60;transition:width .08s linear}
+
+.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);align-items:start}
+nav.toc{position:sticky;top:53px;max-height:calc(100vh - 53px);overflow-y:auto;padding:26px 14px 60px 22px;border-right:1px solid var(--border)}
+nav.toc h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--fg-faint);margin:0 0 10px 8px;border:0;padding:0}
+nav.toc ol{list-style:none;margin:0 0 22px;padding:0}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;text-decoration:none;color:var(--fg-muted);font-size:13.5px;line-height:1.4;border-left:2px solid transparent}
+nav.toc a:hover{background:var(--bg-alt);color:var(--fg)}
+nav.toc a.active{background:var(--accent-soft);color:var(--accent);font-weight:600;border-left-color:var(--accent)}
+main{padding:30px 46px 140px;max-width:1010px;min-width:0}
+
+h1{font-size:34px;line-height:1.2;letter-spacing:-.02em;margin:.2em 0 .3em}
+h2{font-size:24px;letter-spacing:-.015em;margin:2.5em 0 .5em;padding-bottom:.3em;border-bottom:1px solid var(--border);scroll-margin-top:80px}
+h3{font-size:18.5px;margin:1.9em 0 .4em;scroll-margin-top:80px}
+h4{font-size:13px;margin:1.5em 0 .3em;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.06em}
+p{margin:.65em 0}
+a{color:var(--accent)}
+ul,ol{padding-left:24px;margin:.6em 0}
+li{margin:.32em 0}
+code{font-family:var(--mono);font-size:.875em;background:var(--bg-sunken);padding:.14em .38em;border-radius:5px;border:1px solid var(--border)}
+h2 code,h3 code,h4 code{font-size:.9em}
+.lede{font-size:18px;color:var(--fg-muted);margin:0 0 1.4em;max-width:74ch}
+.stepnum{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;margin-right:12px;vertical-align:2px}
+
+.code{margin:1em 0}
+.code-head{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg-alt);border:1px solid var(--border);border-bottom:0;border-radius:9px 9px 0 0;font-size:11.5px;font-weight:700;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.06em}
+.code-head .spacer{flex:1}
+.copy{font:inherit;font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;padding:2px 9px;border-radius:5px;border:1px solid var(--border-strong);background:var(--bg);color:var(--fg-muted)}
+.copy:hover{color:var(--accent);border-color:var(--accent)}
+.copy.done{color:var(--allow);border-color:var(--allow)}
+pre{margin:0;padding:14px 16px;overflow-x:auto;background:var(--code-bg);color:var(--code-fg);border-radius:0 0 9px 9px;font-family:var(--mono);font-size:13px;line-height:1.6}
+pre code{background:none;border:0;padding:0;font-size:inherit;color:inherit}
+.code.wrap pre{white-space:pre-wrap;overflow-wrap:anywhere}
+pre .c{color:var(--code-dim)}
+pre .ok{color:#3fb950}
+pre .warn{color:#d29922}
+pre .bad{color:#f85149}
+pre .hl{color:#79c0ff}
+
+.notes{margin:1.15em 0;border:1px solid var(--note-border);border-left-width:4px;border-radius:9px;background:var(--note-bg);color:var(--note-fg);padding:12px 18px;font-size:14.5px}
+.notes>.label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--note-border);margin-bottom:6px}
+.notes p:first-of-type{margin-top:0}
+.notes p:last-child,.notes ul:last-child,.notes ol:last-child{margin-bottom:0}
+.notes code{background:color-mix(in srgb,var(--note-border) 14%,transparent);border-color:color-mix(in srgb,var(--note-border) 32%,transparent)}
+body.hide-notes .notes{display:none}
+
+.callout{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:9px;padding:11px 16px;margin:1.15em 0;background:var(--bg-alt);font-size:15px}
+.callout.warn{border-left-color:var(--ask);background:var(--ask-bg)}
+.callout.danger{border-left-color:var(--deny);background:var(--deny-bg)}
+.callout.good{border-left-color:var(--allow);background:var(--allow-bg)}
+.callout strong:first-child{display:block;margin-bottom:2px}
+.callout p:first-child{margin-top:0}
+.callout p:last-child{margin-bottom:0}
+
+table{border-collapse:collapse;width:100%;margin:1.15em 0;font-size:14px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:7px 11px;text-align:left;vertical-align:top}
+th{background:var(--bg-alt);font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-muted);white-space:nowrap}
+tbody tr:nth-child(even){background:var(--bg-alt)}
+
+.pill{display:inline-block;font-family:var(--mono);font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;border:1px solid}
+.pill.allow{color:var(--allow);background:var(--allow-bg);border-color:var(--allow)}
+.pill.ask{color:var(--ask);background:var(--ask-bg);border-color:var(--ask)}
+.pill.deny{color:var(--deny);background:var(--deny-bg);border-color:var(--deny)}
+
+.layers{margin:1.25em 0;display:grid;gap:7px}
+.layer{display:grid;grid-template-columns:30px 1fr;gap:13px;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:9px;background:var(--bg-alt);box-shadow:var(--shadow)}
+.layer .n{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;background:var(--fg);color:var(--bg);font-weight:800;font-size:13px;font-family:var(--mono)}
+.layer .t>b{display:block;font-size:15px}
+.layer .t span{color:var(--fg-muted);font-size:13.5px}
+.layer .t span b{color:var(--fg);font-weight:700}
+.layer.l-deny{border-left:4px solid var(--deny)}
+.layer.l-ask{border-left:4px solid var(--ask)}
+.layer.l-allow{border-left:4px solid var(--allow)}
+.layer.l-jev{border-left:4px solid var(--accent)}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:14px;margin:1.15em 0}
+.card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--bg-alt);box-shadow:var(--shadow)}
+.card h4{margin-top:0}
+.card p:last-child{margin-bottom:0}
+.kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--bg-alt)}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:1.2em 0 1.8em}
+.chip{font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:20px;background:var(--bg-alt);border:1px solid var(--border);color:var(--fg-muted)}
+.footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--border);color:var(--fg-faint);font-size:13.5px}
+.os{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--fg-faint);border:1px solid var(--border);border-radius:5px;padding:1px 6px;margin-right:6px}
+
+@media (max-width:1040px){
+  .shell{grid-template-columns:1fr}
+  nav.toc{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--border);padding:16px 22px}
+  main{padding:24px 22px 90px}
+}
+@media print{
+  .topbar,nav.toc,.copy,#progress{display:none!important}
+  .shell{display:block}
+  main{padding:0;max-width:none}
+  body{font-size:10.5pt}
+  pre{background:#f4f4f4;color:#111;border:1px solid #ccc}
+  pre .ok,pre .warn,pre .bad,pre .c,pre .hl{color:#111}
+  .notes{break-inside:avoid;background:#f7f3ff;color:#2a2040}
+  h2,h3{break-after:avoid}
+  .code,.callout,.layer,table,.card{break-inside:avoid}
+  a{color:#111;text-decoration:none}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<header class="topbar">
+  <div class="brand">Ten Levels of Jev <span>/ .NET + GitHub Copilot CLI</span></div>
+  <div class="spacer"></div>
+  <button class="btn" id="notesBtn" aria-pressed="true">Presenter notes: on</button>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="printBtn">Print</button>
+</header>
+
+<div class="shell">
+<nav class="toc" aria-label="Table of contents">
+  <h2>Tutorial</h2>
+  <ol>
+    <li><a href="#intro">What this repo teaches</a></li>
+    <li><a href="#model">The mental model</a></li>
+    <li><a href="#step0">0. Prerequisites</a></li>
+    <li><a href="#step1">1. Bootstrap the repo</a></li>
+    <li><a href="#step2">2. The three primitives</a></li>
+    <li><a href="#step3">3. Levels 1-4: typed judgments</a></li>
+    <li><a href="#step4">4. Level 5: code owns policy</a></li>
+    <li><a href="#step5">5. Levels 8-9: the gate</a></li>
+    <li><a href="#step6">6. Test the hook offline</a></li>
+    <li><a href="#step7">7. Run the real Copilot hook</a></li>
+    <li><a href="#step8">8. Levels 6-7: Agent Framework</a></li>
+    <li><a href="#step9">9. Level 10, skill, custom agent</a></li>
+    <li><a href="#step10">10. Switch to live Jev</a></li>
+  </ol>
+  <h2>Reference</h2>
+  <ol>
+    <li><a href="#ref-env">Environment variables</a></li>
+    <li><a href="#ref-cli">CLI flags</a></li>
+    <li><a href="#ref-files">File map</a></li>
+    <li><a href="#ref-mock">Mock determinism table</a></li>
+    <li><a href="#troubleshoot">Troubleshooting</a></li>
+    <li><a href="#hardening">Production hardening</a></li>
+    <li><a href="#script">15-minute demo script</a></li>
+  </ol>
+</nav>
+
+<main>
+<h1 id="intro">Ten Levels of Jev: step-by-step tutorial</h1>
+<p class="lede">
+A guided walkthrough of this repository, from a single probability inside an ordinary <code>if</code>
+statement to a GitHub Copilot CLI session where a .NET policy hook decides which tool calls are
+allowed to run. Every step gives the exact command, the output you should see, and a presenter note
+explaining what is really going on.
+</p>
+
+<div class="meta">
+  <span class="chip">.NET 10</span>
+  <span class="chip">GitHub Copilot CLI</span>
+  <span class="chip">Microsoft Agent Framework 1.22.0</span>
+  <span class="chip">TypeSafe Jev API</span>
+  <span class="chip">Windows / macOS / Linux</span>
+</div>
+
+<div class="callout">
+  <strong>How to use this page</strong>
+  <p>Read it top to bottom the first time. The purple <em>presenter note</em> blocks contain the deeper
+  explanation you would say out loud while demoing. Use the <span class="kbd">Presenter notes</span>
+  button in the header to hide them and get a clean command-only runbook, or
+  <span class="kbd">Print</span> to produce a handout. All console output shown below was captured
+  from an actual run of this repository, not written by hand.</p>
+</div>
+
+<h2 id="model">The mental model: Jev advises, code authorizes</h2>
+
+<p>
+Jev (the TypeSafe "System One" API) answers <em>bounded semantic questions</em> very fast: a yes/no
+probability, a one-of-N choice, or a position on an ordered rubric. It is deliberately not a planner
+and not a code generator.
+</p>
+<p>
+This repository takes that primitive and walks it up ten levels until it is sitting inside a real
+GitHub Copilot CLI <code>preToolUse</code> hook, deciding whether the coding agent's next tool call
+should run. One idea holds the whole progression together:
+</p>
+
+<div class="callout good">
+  <strong>Jev advises; code authorizes.</strong>
+  <p>Jev never returns an authorization. It returns evidence: a number and a confidence.
+  Deterministic C# owns the hard rules, owns the thresholds, and owns the final
+  <span class="pill allow">allow</span> <span class="pill ask">ask</span> <span class="pill deny">deny</span>.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>This framing is the reason the demo is worth giving at all. The naive version of an "AI safety hook"
+  is <em>model says safe, therefore execute</em>. That fails in two directions at once: it is bypassable
+  through prompt injection inside the tool arguments, and it is unauditable because the policy lives in
+  a prompt rather than in reviewable code.</p>
+  <p>The version here inverts the relationship. Before Jev is consulted at all, an anchored regex layer
+  hard-denies the commands nobody needs a model to judge, and a credential layer stops secret-shaped
+  text from ever leaving the machine. Jev only sees the ambiguous middle, and even then the C# code
+  decides what its numbers are allowed to mean.</p>
+  <p>A useful contrast to draw out loud: the deterministic layer has a <em>knowable, testable</em>
+  false-negative rate; the model layer has an unknown one. So the deterministic layer is placed where a
+  false negative would be fatal, and Jev is placed where the worst case is one unnecessary human prompt.</p>
+</div>
+
+<h3>The ten levels at a glance</h3>
+
+<table>
+<thead><tr><th>Level</th><th>Name</th><th>New idea</th><th>Needs Copilot?</th></tr></thead>
+<tbody>
+<tr><td><b>01</b></td><td>The smart if-statement</td><td>One Noul probability drives an ordinary C# branch</td><td>No</td></tr>
+<tr><td><b>02</b></td><td>Typed routing</td><td>A bounded Choice replaces fuzzy routing logic</td><td>No</td></tr>
+<tr><td><b>03</b></td><td>Ordered risk</td><td>A Score rates state against an explicit ordered rubric</td><td>No</td></tr>
+<tr><td><b>04</b></td><td>Parallel typed judgments</td><td>Noul, Choice, and Score share one state and one request</td><td>No</td></tr>
+<tr><td><b>05</b></td><td>Code owns the policy</td><td>Deterministic rules plus code-owned confidence thresholds</td><td>No</td></tr>
+<tr><td><b>06</b></td><td>Jev becomes a Copilot tool</td><td>Agent Framework exposes one Jev function to a Copilot-backed agent</td><td><b>Yes</b></td></tr>
+<tr><td><b>07</b></td><td>Copilot gets the toolbelt</td><td>All three primitives become function tools</td><td><b>Yes</b></td></tr>
+<tr><td><b>08</b></td><td>Native <code>preToolUse</code> hook</td><td>The same gate joins Copilot CLI's real tool lifecycle</td><td>No</td></tr>
+<tr><td><b>09</b></td><td>Confidence-aware escalation</td><td>Allow / ask / deny driven by probability and confidence</td><td>No</td></tr>
+<tr><td><b>10</b></td><td>The agent reaches for Jev itself</td><td>The agent decides whether a bounded judgment is even useful</td><td><b>Yes</b></td></tr>
+</tbody>
+</table>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Seven of the ten levels run with nothing but the .NET SDK and no API key, because they use a
+  deterministic local mock. That is deliberate. You can give this talk on a locked-down laptop, on a
+  plane, or in a client environment where you cannot authenticate anything, and still land eight of the
+  ten teaching points including the entire hook story.</p>
+  <p>Only levels 6, 7, and 10 need an authenticated GitHub Copilot runtime, and those three are about
+  the <em>agent</em> rather than about the <em>policy</em>. If Copilot login fails live on stage, say so
+  and narrate level 10 instead of running it. Nothing about the safety argument depends on them.</p>
+</div>
+
+<h2 id="step0"><span class="stepnum">0</span>Prerequisites and environment check</h2>
+
+<p>There are three tiers of prerequisite, and you only need the first one to get value out of the repo.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Tier 1 - required</h4>
+    <p><b>.NET 10 SDK.</b> Pinned by <code>global.json</code> to <code>10.0.100</code> with
+    <code>rollForward: latestFeature</code>. Unlocks levels 1-5, 8, 9, the hook, and the self-tests.
+    No API key, no network beyond nuget.org.</p>
+  </div>
+  <div class="card">
+    <h4>Tier 2 - for the hook demo</h4>
+    <p><b>GitHub Copilot CLI</b>, installed and authenticated, so you can start an interactive
+    <code>copilot</code> session and watch the <code>preToolUse</code> hook make real decisions.</p>
+  </div>
+  <div class="card">
+    <h4>Tier 3 - optional</h4>
+    <p><b>A TypeSafe API key</b> in <code>TYPESAFE_API_KEY</code> to replace the deterministic mock with
+    live Jev calls, plus network access to <code>api.typesafe.ai</code>.</p>
+  </div>
+</div>
+
+<h3>Verify what you have</h3>
+
+<div class="code">
+  <div class="code-head">PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet --list-sdks
+Get-Command copilot -ErrorAction SilentlyContinue
+$env:TYPESAFE_API_KEY</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet --list-sdks
+command -v copilot
+echo "${TYPESAFE_API_KEY:-(not set)}"</code></pre>
+</div>
+
+<p>A working Tier 1 machine prints at least one <code>10.0.x</code> SDK:</p>
+
+<div class="code">
+  <div class="code-head">expected<div class="spacer"></div></div>
+<pre><code>8.0.421 [C:\Program Files\dotnet\sdk]
+<span class="ok">10.0.108 [C:\Program Files\dotnet\sdk]</span>
+<span class="ok">10.0.204 [C:\Program Files\dotnet\sdk]</span></code></pre>
+</div>
+
+<div class="callout warn">
+  <strong>Windows: use PowerShell 7 if you have it</strong>
+  <p>The hook wrapper prefers <code>pwsh</code> and falls back to Windows PowerShell 5.1. Both work,
+  but the bootstrap and test scripts are written against PowerShell 7 idioms. Run them with
+  <code>pwsh</code> where possible.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Two build invariants are worth knowing before anyone tries this on their own machine, because both
+  produce confusing failures.</p>
+  <p><b>NuGet feeds.</b> <code>NuGet.config</code> clears all sources and pins exactly one
+  (nuget.org), and the repo uses Central Package Management. If a machine-level or corporate feed
+  leaks in, NuGet raises <code>NU1507</code> ("there are N package sources defined"), and because
+  <code>Directory.Build.props</code> sets <code>TreatWarningsAsErrors</code>, that warning becomes a
+  build break. The fix is not to relax the warning; it is to keep the pin or add explicit package
+  source mapping.</p>
+  <p><b>The npm download.</b> <code>TenLevels.Jev</code> depends on <code>GitHub.Copilot.SDK</code>
+  transitively, and its MSBuild targets download the Copilot CLI from <code>registry.npmjs.org</code>
+  <em>at build time</em>. That is the only step in this repository that needs a non-NuGet network
+  endpoint. The repo caps that download at 90 seconds (<code>CopilotCliDownloadTimeout</code>) instead
+  of the SDK default of 600, precisely so a blocked corporate network gives you an error in a minute and
+  a half rather than a ten-minute silent hang.</p>
+</div>
+
+<h2 id="step1"><span class="stepnum">1</span>Bootstrap the repository</h2>
+
+<p>The bootstrap script builds, tests, and self-verifies in a deliberate order.</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell 7+<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/bootstrap.ps1</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/bootstrap.sh</code></pre>
+</div>
+
+<h3>What bootstrap does, in order</h3>
+
+<ol>
+  <li><code>dotnet restore JevCopilotDemo.sln</code></li>
+  <li>Builds <code>Jev.Core</code>, <code>Jev.CopilotHook</code>, and <code>Jev.Core.SelfTests</code> in Release</li>
+  <li>Runs the self-tests and stops on failure</li>
+  <li>Runs <code>scripts/test-hook.*</code>, replaying every sample payload through the compiled hook</li>
+  <li><b>Last:</b> builds <code>TenLevels.Jev</code>, and only warns (does not fail) if the npm download is blocked</li>
+</ol>
+
+<p>Expected tail of a successful run:</p>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code><span class="ok">All self-tests passed.</span>
+<span class="ok">PASS</span>  curl-pipe-shell -&gt; deny
+<span class="ok">PASS</span>  dotnet-format -&gt; ask
+...
+Bootstrap complete.
+
+Try: dotnet run --project src/TenLevels.Jev -- --list
+Then: $env:JEV_MODE="mock"; copilot</code></pre>
+</div>
+
+<div class="callout danger">
+  <strong>Building the hook is not optional</strong>
+  <p>The Copilot hook wrapper executes a <em>pre-built</em> DLL. It never restores or builds inside the
+  hook. If <code>src/Jev.CopilotHook/bin/Release/net10.0/Jev.CopilotHook.dll</code> is missing, the
+  wrapper deliberately returns <span class="pill ask">ask</span> for every tool call with the reason
+  "Jev hook is not built."</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>The ordering here is the whole point, and it is worth one sentence on stage. Everything that can be
+  built and verified offline is built and verified <em>first</em>. The one project that needs an internet
+  resource outside NuGet is built <em>last</em>, and its failure is reported as a warning rather than
+  aborting the script. So a restricted-network attendee still ends up with a working hook, working
+  self-tests, and eight runnable levels.</p>
+  <p>The "no build inside the hook" rule deserves emphasis too. A <code>preToolUse</code> hook runs on
+  <em>every single tool call</em> in a Copilot session, inside an 8-second timeout. A cold
+  <code>dotnet build</code> there would blow the timeout, and a hook timeout in Copilot CLI
+  <em>fails open</em>. So the design choice "compile ahead of time, execute a DLL" is a security
+  property, not just a speed optimization.</p>
+  <p>Notice also what the wrapper does when the DLL is missing: it returns <code>ask</code>, not
+  <code>allow</code> and not a crash. Every degraded path in this repo lands on "ask a human."</p>
+</div>
+
+<h2 id="step2"><span class="stepnum">2</span>The three Jev primitives and the wire format</h2>
+
+<p>
+Before running anything, look at the shape of a Jev request. One <code>state</code>, one model, and a
+named dictionary of typed questions. You can ask several questions of different types about the same
+state in a single round trip.
+</p>
+
+<div class="code">
+  <div class="code-head">POST https://api.typesafe.ai/v1/systemone<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>{
+  "state": "Copilot wants to update a package and regenerate snapshots.",
+  "model": "jev-latest",
+  "questions": {
+    "side_effect": {
+      "type": <span class="hl">"noul"</span>,
+      "instructions": "Does this have persistent side effects?"
+    },
+    "route": {
+      "type": <span class="hl">"choice"</span>,
+      "instructions": "How should this be handled?",
+      "criteria": {
+        "allow": "Low-risk and reversible",
+        "ask":   "Consequential or ambiguous",
+        "deny":  "Clearly prohibited"
+      }
+    },
+    "risk": {
+      "type": <span class="hl">"score"</span>,
+      "instructions": "Rate operational risk",
+      "criteria": ["read-only", "small mutation", "broad mutation", "destructive"]
+    }
+  }
+}</code></pre>
+</div>
+
+<table>
+<thead><tr><th>Primitive</th><th>Question shape</th><th>Answer shape</th><th>Use it when</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>Noul</b></td>
+  <td>One yes/no proposition, optional <code>true</code> / <code>false</code> criteria</td>
+  <td><code>noul</code>: probability 0.0 to 1.0</td>
+  <td>The answer is a single proposition and you want a threshold in code</td>
+</tr>
+<tr>
+  <td><b>Choice</b></td>
+  <td>A named set of options, each with a description</td>
+  <td><code>choice</code>, <code>confidence</code>, full <code>probabilities</code> map</td>
+  <td>The complete answer space can be written down in advance</td>
+</tr>
+<tr>
+  <td><b>Score</b></td>
+  <td>An <em>ordered</em> array of descriptive levels, index 0 upward</td>
+  <td><code>score</code>, <code>confidence</code>, <code>legend</code>, <code>probabilities</code></td>
+  <td>The answer is a position on a rubric, not a category</td>
+</tr>
+</tbody>
+</table>
+
+<p>In C# these map to records in <a href="../src/Jev.Core/Models.cs"><code>src/Jev.Core/Models.cs</code></a>,
+with a polymorphic <code>type</code> discriminator:</p>
+
+<div class="code">
+  <div class="code-head">src/Jev.Core/Models.cs<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(NoulQuestion),   "noul")]
+[JsonDerivedType(typeof(ChoiceQuestion), "choice")]
+[JsonDerivedType(typeof(ScoreQuestion),  "score")]
+public abstract record JevQuestion;</code></pre>
+</div>
+
+<p>Every implementation talks to one interface, which is what makes the mock and the live client
+interchangeable everywhere in the repo:</p>
+
+<div class="code">
+  <div class="code-head">src/Jev.Core/IJevClient.cs<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>public interface IJevClient
+{
+    Task&lt;SystemOneResponse&gt; DecideAsync(
+        object state,
+        IReadOnlyDictionary&lt;string, JevQuestion&gt; questions,
+        CancellationToken cancellationToken = default);
+}</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Three things to point at in this section.</p>
+  <p><b>Why "bounded" matters.</b> The reason a Score takes an ordered array of <em>descriptive</em>
+  levels rather than "rate 1 to 10" is that a bare 1-to-10 scale has no shared meaning between the
+  caller and the model. Writing out "read-only / small repository-local mutation / broad or stateful
+  mutation / destructive or security-sensitive" makes the rubric reviewable in a pull request. Someone
+  can disagree with level 2's wording in code review. Nobody can meaningfully code-review "rate it 1 to 10."</p>
+  <p><b>Why the whole probability distribution is returned.</b> The Choice answer carries every option's
+  probability, not only the winner. <code>CopilotToolGate</code> uses that: it reads
+  <code>probabilities["deny"]</code> directly rather than trusting the argmax. A 0.45 / 0.45 / 0.10 split
+  has a winner, but it is a coin flip, and code that only looks at <code>choice</code> cannot tell the
+  difference between that and a 0.95 landslide.</p>
+  <p><b>Why the interface is this small.</b> One method, one state, a dictionary of questions. That is
+  what lets <code>MockJevClient</code> and <code>JevHttpClient</code> be swapped by a single CLI flag,
+  and it is why the self-tests can assert the exact serialized wire shape against a stub
+  <code>HttpMessageHandler</code> without any network.</p>
+</div>
+
+<h2 id="step3"><span class="stepnum">3</span>Levels 1 to 4: typed judgments in plain .NET</h2>
+
+<p>Start by listing the levels:</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --list</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>01  The smart if-statement
+02  Typed routing
+03  Ordered risk
+04  Parallel typed judgments
+05  Code owns the policy
+06  Jev becomes a Copilot tool            <span class="warn">[Copilot runtime]</span>
+07  Copilot gets the Jev toolbelt         <span class="warn">[Copilot runtime]</span>
+08  Native Copilot preToolUse hook
+09  Confidence-aware human escalation
+10  The agent reaches for Jev itself      <span class="warn">[Copilot runtime]</span></code></pre>
+</div>
+
+<p>Then run every level that does not need a Copilot runtime:</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --all --jev mock</code></pre>
+</div>
+
+<h3>Level 01 - the smart if-statement</h3>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>=== Level 01: The smart if-statement ===
+Use one Noul probability and ordinary C# to branch.
+
+dangerous: noul=<span class="bad">0.94</span>
+C# policy: <span class="bad">BLOCK</span></code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">src/TenLevels.Jev/Levels/Level01SmartIf.cs<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>const string state = "Copilot proposes: rm -rf ./artifacts after the build.";
+
+var response = await jev.DecideAsync(state, new Dictionary&lt;string, JevQuestion&gt;
+{
+    ["dangerous"] = new NoulQuestion(
+        "Is this proposed coding-agent action potentially destructive?",
+        new NoulCriteria(
+            "Could delete important files or make an irreversible change.",
+            "Read-only or clearly reversible.")),
+});
+
+var answer = (NoulAnswer)response.Answers["dangerous"];
+Console.WriteLine(answer.Noul &gt;= <span class="hl">0.80</span> ? "C# policy: BLOCK" : "C# policy: continue normal checks");</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>The whole lesson of level 1 is the last line. The threshold <code>0.80</code> is a literal in your
+  source file. It shows up in a diff, it can carry a comment explaining why it is 0.80 and not 0.65, and
+  it can be changed without touching a prompt. Jev supplied a number; your code supplied the meaning.</p>
+  <p>Mention the <code>NoulCriteria</code> pair as well. Spelling out what "true" means and what "false"
+  means is what turns a vague question into a bounded one. Without it you are relying on the model and
+  the reader agreeing about the word "destructive."</p>
+  <p>If someone asks why the mock returns exactly 0.94: the state contains <code>rm -rf</code>, which
+  matches a hard-deny regex, so <code>RiskHeuristics.Classify</code> puts it in the High band, and the
+  mock maps High to 0.94 every time. Determinism is the feature. Your demo output will never surprise you.</p>
+</div>
+
+<h3>Level 02 - typed routing</h3>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>=== Level 02: Typed routing ===
+Replace a pile of fuzzy conditionals with a bounded Choice.
+
+route: choice=<span class="warn">ask</span>, confidence=0.76</code></pre>
+</div>
+
+<p>The state is "Copilot proposes to install a new global CLI package and update PATH." The answer space
+is written out in advance as three named options with descriptions, so the model cannot invent a fourth.</p>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Contrast this explicitly with the code it replaces. The hand-written version is a ladder of
+  <code>if (command.Contains("install")) ... else if (command.Contains("global")) ...</code> that nobody
+  can keep correct as the surface grows. The Choice version states the answer space once, and the
+  interesting part becomes the criteria text rather than the control flow.</p>
+  <p>The confidence of 0.76 is not a rounding artifact. The mock returns 0.94 for confident bands (Low
+  and High) and 0.76 for the Medium band, so "the model is unsure" is reproducible on stage. You will use
+  that 0.76 again at level 5, where it is exactly what fails the allow threshold.</p>
+</div>
+
+<h3>Level 03 - ordered risk</h3>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>=== Level 03: Ordered risk ===
+Use a Score when the answer is an ordered rubric rather than a category.
+
+risk: score=<span class="warn">1.56</span>, confidence=0.73</code></pre>
+</div>
+
+<p>The rubric has four descriptive levels, so valid scores run from 0.0 to 3.0:</p>
+
+<div class="code">
+  <div class="code-head">rubric<div class="spacer"></div></div>
+<pre><code>0  Read-only or trivial reversible action.
+1  Repository-local mutation with easy rollback.
+2  Broad change that affects dependencies, generated assets, or repository state.
+3  Destructive, system-wide, credential-sensitive, or difficult to reverse.</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>The key difference from Choice: a Score is <em>ordered</em>, so arithmetic on it is meaningful.
+  You can say "escalate above 2.0" or "average the scores of the five files in this PR." You cannot
+  average a Choice.</p>
+  <p>Where 1.56 comes from, if asked: the state mentions editing files and adding a package reference,
+  which lands in the Medium band, the mock's normalized Medium value is 0.52, and 0.52 multiplied by
+  (4 levels - 1) is 1.56. The non-integer result is the point. The action sits between "repository-local
+  mutation" and "broad change," and the score preserves that rather than forcing it into a bucket.</p>
+  <p>Note also that a Score answer returns a <code>legend</code>, mapping each index back to its
+  description. That is what lets a log line say "1.56, between 'repository-local mutation with easy
+  rollback' and 'broad change'" instead of a bare number nobody can interpret six months later.</p>
+</div>
+
+<h3>Level 04 - parallel typed judgments</h3>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>=== Level 04: Parallel typed judgments ===
+Ask Noul, Choice, and Score questions together against one state.
+
+has_side_effect: noul=0.58
+route: choice=<span class="warn">ask</span>, confidence=0.76
+risk: score=1.56, confidence=0.73
+model=mock-jev, input_tokens=20</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Three different question types, three different answer types, <em>one</em> request and one state.
+  This matters for two practical reasons: latency (one round trip instead of three) and coherence (all
+  three judgments are made against exactly the same evidence, so they cannot disagree because one of them
+  saw a different description).</p>
+  <p>The <code>input_tokens</code> line is worth a beat. Jev is priced and budgeted like any other model
+  call, and a hook that runs on every tool call in a long agent session makes that cost real. The usage
+  block is surfaced in the demo output specifically so nobody forgets there is a meter running.</p>
+  <p>Design guidance to offer here: prefer one request with several named questions over several
+  requests. Name the questions after what you will do with the answer (<code>has_side_effect</code>,
+  <code>route</code>, <code>risk</code>), not after the model.</p>
+</div>
+
+<h2 id="step4"><span class="stepnum">4</span>Level 5: code owns the policy</h2>
+
+<p>This is the hinge of the whole tutorial. Level 5 introduces
+<a href="../src/Jev.Core/CopilotToolGate.cs"><code>CopilotToolGate</code></a>, the class that levels 8, 9,
+and the real Copilot hook all reuse unchanged.</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 5 --jev mock</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>=== Level 05: Code owns the policy ===
+Jev advises; deterministic rules and confidence thresholds decide allow/ask/deny.
+
+view     -&gt; <span class="ok">Allow</span> | Read-only tool fast path.
+bash     -&gt; <span class="warn">Ask</span>   | Jev did not clear the confidence threshold; require human approval.
+bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a destructive command pattern.</code></pre>
+</div>
+
+<p>Three inputs produced three different decisions through three different paths:</p>
+
+<table>
+<thead><tr><th>Tool</th><th>Arguments</th><th>Decision</th><th>Which layer decided</th></tr></thead>
+<tbody>
+<tr><td><code>view</code></td><td><code>{"path":"src/Program.cs"}</code></td><td><span class="pill allow">allow</span></td><td>Read-only fast path, no Jev call</td></tr>
+<tr><td><code>bash</code></td><td><code>dotnet add package Example.Package</code></td><td><span class="pill ask">ask</span></td><td>Jev ran, confidence 0.76 missed the threshold</td></tr>
+<tr><td><code>bash</code></td><td><code>git push --force origin main</code></td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny, Jev never called</td></tr>
+</tbody>
+</table>
+
+<h3>The layer order</h3>
+
+<div class="layers">
+  <div class="layer l-deny"><div class="n">1</div><div class="t"><b>Deterministic hard deny</b><span>Anchored regexes for explicitly destructive commands. Returns <b>deny</b>. Jev is never called.</span></div></div>
+  <div class="layer l-ask"><div class="n">2</div><div class="t"><b>Credential stop</b><span>Anything that looks like secret material returns <b>ask</b> and is never forwarded to an external API.</span></div></div>
+  <div class="layer l-allow"><div class="n">3</div><div class="t"><b>Read-only fast path</b><span>Known non-mutating tool names return <b>allow</b> with no model call and no latency.</span></div></div>
+  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host Jev tool exemption</b><span><code>jev_noul</code>, <code>jev_choice</code>, <code>jev_score</code> return a judgment and cannot mutate anything.</span></div></div>
+  <div class="layer l-jev"><div class="n">5</div><div class="t"><b>Jev semantic classification</b><span>The ambiguous middle becomes a bounded Choice over allow / ask / deny.</span></div></div>
+  <div class="layer l-jev"><div class="n">6</div><div class="t"><b>Code-owned thresholds</b><span>C# literals turn probability and confidence into a decision.</span></div></div>
+  <div class="layer l-ask"><div class="n">7</div><div class="t"><b>Default: ask a human</b><span>Everything that did not clear a threshold escalates. Ask is the fallback, never allow.</span></div></div>
+</div>
+
+<p>The thresholds themselves are three lines of ordinary C#:</p>
+
+<div class="code">
+  <div class="code-head">src/Jev.Core/CopilotToolGate.cs<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>if (deny &gt;= <span class="hl">0.55</span> || (answer.Choice.Equals("deny", OrdinalIgnoreCase) &amp;&amp; answer.Confidence &gt;= <span class="hl">0.60</span>))
+    return new GateResult(GateDecision.Deny, "Jev classified the tool call as unsafe ...");
+
+if (allow &gt;= <span class="hl">0.85</span> &amp;&amp; answer.Confidence &gt;= <span class="hl">0.75</span>)
+    return new GateResult(GateDecision.Allow, "Jev classified the tool call as low risk ...");
+
+return new GateResult(GateDecision.Ask, "Jev did not clear the confidence threshold ...");</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Walk the middle row of the table arithmetically, out loud. It is the most convincing sixty seconds
+  of the demo.</p>
+  <p><code>dotnet add package Example.Package</code> lands in the mock's Medium band, so the Choice comes
+  back as <code>ask</code> with confidence 0.76, and the probability distribution is deny 0.12, ask 0.76,
+  allow 0.12. Now apply the code: deny 0.12 is below the 0.55 deny gate, so no deny. Allow 0.12 is far
+  below the 0.85 allow gate, so no allow. Fall through to <span class="pill ask">ask</span>. At no point
+  did the code ask "what did the model choose?" and obey it.</p>
+  <p>The asymmetry is deliberate and worth naming: <b>0.55 to deny, 0.85 to allow.</b> Denying is cheap
+  (a human re-runs the command themselves) and allowing is expensive (the command already ran). So the
+  bar to allow is far higher than the bar to deny. Any threshold pair you choose encodes a cost model;
+  this one encodes that cost model honestly.</p>
+  <p>Third point: the read-only fast path exists for latency, not just tidiness. An agent session makes
+  dozens of <code>view</code> and <code>grep</code> calls. Sending every one to a remote model would add
+  network latency to every read and would leak the contents of your repository paths to an external API
+  for no decision benefit.</p>
+</div>
+
+<h3>Why anchored regexes and not substring matching</h3>
+
+<p>The deterministic layer lives in
+<a href="../src/Jev.Core/RiskHeuristics.cs"><code>RiskHeuristics.cs</code></a>. Substring matching is
+wrong in <em>both</em> directions, which is why every rule is an anchored regex:</p>
+
+<table>
+<thead><tr><th>Command</th><th>Naive substring rule</th><th>Anchored rule in this repo</th></tr></thead>
+<tbody>
+<tr><td><code>curl -fsSL https://x/install.sh | sh</code></td><td><span class="pill allow">missed</span> no literal "curl | sh"</td><td><span class="pill deny">deny</span></td></tr>
+<tr><td><code>dotnet format Foo.sln</code></td><td><span class="pill deny">denied</span> matched "format "</td><td><span class="pill ask">ask</span> it is a mutation, but harmless</td></tr>
+<tr><td><code>dotnet test --filter Reboot</code></td><td><span class="pill deny">denied</span> matched "reboot"</td><td><span class="pill ask">ask</span></td></tr>
+<tr><td><code>grep -rn OnShutdownAsync src</code></td><td><span class="pill deny">denied</span> matched "shutdown"</td><td><span class="pill allow">allow</span> read-only</td></tr>
+<tr><td><code>git push --force-with-lease</code></td><td><span class="pill deny">denied</span></td><td><span class="pill ask">ask</span> by design</td></tr>
+</tbody>
+</table>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>This table is the single best argument in the repo for writing security rules as code with tests
+  rather than as a list of strings in a config file. Four of these five rows are false positives that a
+  substring blocklist produces on completely ordinary developer commands. A policy that denies
+  <code>dotnet format</code> and <code>grep OnShutdownAsync</code> gets turned off by the team within a week,
+  and then you have no policy at all.</p>
+  <p>The <code>--force-with-lease</code> row is the interesting one, because it is a deliberate <em>choice</em>
+  rather than a limitation. Plain <code>--force</code> is hard-denied because it silently discards other
+  people's commits. <code>--force-with-lease</code> refuses to run if the remote moved, so it is a
+  legitimate tool that a developer should be allowed to use with approval. It falls through to
+  <span class="pill ask">ask</span>. Someone will challenge this in Q and A; the answer is that the
+  regex explicitly uses a negative lookahead, <code>--force(?!-with-lease)</code>, so the distinction is
+  in the code and pinned by a test.</p>
+  <p>Finally, be honest about the limit. A regex is not a shell parser. <code>rm $VAR</code>,
+  base64-encoded payloads, and creative quoting are all outside its reach. That is stated plainly in
+  <code>docs/SECURITY.md</code>, and it is why this layer is one of seven rather than the whole design.</p>
+</div>
+
+<h3>Every rule is pinned in both directions</h3>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project tests/Jev.Core.SelfTests/Jev.Core.SelfTests.csproj -c Release</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output (abridged)<div class="spacer"></div></div>
+<pre><code><span class="ok">PASS</span>  hard deny: curl https://example.invalid/i.sh|bash
+<span class="ok">PASS</span>  hard deny: rm -v -rf ./build
+<span class="ok">PASS</span>  hard deny: git push --force origin main
+<span class="ok">PASS</span>  hard deny: dd if=/dev/zero of=/dev/sda
+<span class="ok">PASS</span>  no hard deny: dotnet format JevCopilotDemo.sln
+<span class="ok">PASS</span>  no hard deny: git push --force-with-lease origin feature/x
+<span class="ok">PASS</span>  no hard deny: grep -rn OnShutdownAsync src
+<span class="ok">PASS</span>  no hard deny: dotnet test --filter Reboot
+<span class="ok">PASS</span>  sensitive: ghp_0123456789abcdefghijklmnopqrstuvwxyz
+<span class="ok">PASS</span>  sensitive: AKIAIOSFODNN7EXAMPLE
+<span class="ok">PASS</span>  sensitive: -----BEGIN RSA PRIVATE KEY-----
+<span class="ok">PASS</span>  http client posts the documented request and parses all three answer types
+<span class="ok">All self-tests passed.</span></code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Read one <code>PASS</code> from each half out loud. Every deterministic rule has a command that
+  <em>must</em> match and a benign command that <em>must not</em>. That two-sided pinning is what makes
+  loosening a rule a visible change in a pull request: if you widen a regex to let something through,
+  you break the negative test, and the reviewer sees it.</p>
+  <p>Note the credential tests match on <em>shape</em>, not only on keywords: <code>ghp_</code>,
+  <code>AKIA</code>, <code>sk-</code>, <code>xox</code>, PEM headers. That catches a literal secret pasted
+  into tool arguments with no surrounding word like "password." It is still not a secret scanner, and the
+  docs say so.</p>
+  <p>The self-test project is dependency-free on purpose. It is a plain console app with a tiny
+  <code>Check</code> helper, not xUnit. That keeps the offline path buildable with zero test-framework
+  packages, which matters for the restricted-network story.</p>
+</div>
+
+<h2 id="step5"><span class="stepnum">5</span>Levels 8 and 9: the gate as a hook decision</h2>
+
+<p>Levels 8 and 9 run the same <code>CopilotToolGate</code> against payload-shaped inputs, so you can see
+hook decisions without starting Copilot.</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 9 --jev mock</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>=== Level 09: Confidence-aware human escalation ===
+
+<span class="ok">Allow</span> grep   confidence=1.00 | Read-only tool fast path.
+<span class="warn">Ask</span>   edit   confidence=0.76 | Jev did not clear the confidence threshold; require human approval.
+<span class="bad">Deny</span>  bash   confidence=1.00 | Deterministic policy matched a destructive command pattern.</code></pre>
+</div>
+
+<div class="callout">
+  <strong>Confidence 1.00 means "no model was involved"</strong>
+  <p>The deterministic layers report full confidence because they are rules, not predictions.
+  Only the middle row, where Jev actually ran, carries a fractional confidence.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>The most interesting demonstration in this section is not in the default output. Run the same
+  <code>edit</code> tool twice with different semantic content and show that the decision changes:</p>
+  <ul>
+    <li><code>edit</code> with <code>"change":"replace retry policy"</code> gives
+    <span class="pill ask">ask</span> at confidence 0.76.</li>
+    <li><code>edit</code> with <code>"change":"update authentication middleware"</code> gives
+    <span class="pill deny">deny</span> at confidence 0.94, and critically the reason is
+    <em>not</em> "Deterministic policy ..." It came from Jev.</li>
+  </ul>
+  <p>That is the payoff for the whole first half of the talk. Same tool, same file, no regex matched,
+  and the decision differs because of what the change <em>means</em>. That is exactly the class of
+  judgment a regex cannot make and a full planning LLM is too slow and too unbounded to make on every
+  tool call.</p>
+  <p>There is a self-test asserting precisely this, named "semantic high risk is still Jev-governed, not
+  hard-denied," which additionally asserts that the reason string does <em>not</em> start with
+  "Deterministic policy." That is a test of the explanation, not just the decision, and it is worth
+  calling out as a pattern: if your policy engine returns reasons to humans, test the reasons.</p>
+</div>
+
+<h2 id="step6"><span class="stepnum">6</span>Test the hook without starting Copilot</h2>
+
+<p>Nine sample payloads live in <code>samples/hooks/</code>. Each one carries the decision it must
+produce, so the test script is an assertion, not a printout.</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/test-hook.ps1</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/test-hook.sh</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code><span class="ok">PASS</span>  curl-pipe-shell      -&gt; deny
+<span class="ok">PASS</span>  dotnet-format        -&gt; ask
+<span class="ok">PASS</span>  edit                 -&gt; ask
+<span class="ok">PASS</span>  force-push           -&gt; deny
+<span class="ok">PASS</span>  force-with-lease     -&gt; ask
+<span class="ok">PASS</span>  jev-tool-with-secret -&gt; ask
+<span class="ok">PASS</span>  jev-tool             -&gt; allow
+<span class="ok">PASS</span>  read                 -&gt; allow
+<span class="ok">PASS</span>  secret-read          -&gt; ask</code></pre>
+</div>
+
+<h3>Pipe a single payload by hand</h3>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:JEV_MODE = "mock"
+Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>JEV_MODE=mock ./scripts/jev-hook.sh &lt; samples/hooks/edit.json</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">stdout - exactly one JSON object<div class="spacer"></div></div>
+<pre><code>{"permissionDecision":"ask","permissionDecisionReason":"Jev did not clear the confidence threshold; require human approval."}</code></pre>
+</div>
+
+<h3>The nine samples and why each one exists</h3>
+
+<table>
+<thead><tr><th>Sample</th><th>Expected</th><th>What it protects</th></tr></thead>
+<tbody>
+<tr><td><code>read</code></td><td><span class="pill allow">allow</span></td><td>Read-only fast path, no Jev call at all</td></tr>
+<tr><td><code>edit</code></td><td><span class="pill ask">ask</span></td><td>Ordinary mutation that does not clear the allow threshold</td></tr>
+<tr><td><code>force-push</code></td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny, never reaches Jev</td></tr>
+<tr><td><code>curl-pipe-shell</code></td><td><span class="pill deny">deny</span></td><td>Regression: a substring rule misses this real-world form</td></tr>
+<tr><td><code>dotnet-format</code></td><td><span class="pill ask">ask</span></td><td>Regression: a substring rule wrongly hard-denied a formatter</td></tr>
+<tr><td><code>force-with-lease</code></td><td><span class="pill ask">ask</span></td><td>The safe variant is intentionally not hard-denied</td></tr>
+<tr><td><code>secret-read</code></td><td><span class="pill ask">ask</span></td><td>Reading <code>.env</code> escalates instead of taking the read fast path</td></tr>
+<tr><td><code>jev-tool</code></td><td><span class="pill allow">allow</span></td><td>The host's own Jev function tools must not be denied</td></tr>
+<tr><td><code>jev-tool-with-secret</code></td><td><span class="pill ask">ask</span></td><td>The credential check runs <em>before</em> that exemption</td></tr>
+</tbody>
+</table>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Point out that four of these nine samples are <em>regression</em> cases. They exist because an
+  earlier, more naive version of the rule got them wrong. Each sample file even carries a
+  <code>note</code> field explaining the mistake it prevents. That is a good pattern to copy wholesale:
+  a policy corpus where each case documents the bug it was born from.</p>
+  <p>The last two rows are the subtlest pair in the repo and reward slowing down.</p>
+  <p><code>jev-tool</code> must be <span class="pill allow">allow</span> because of an interaction most
+  people do not anticipate: the Copilot runtime that Microsoft Agent Framework spawns runs in this
+  repository's working directory, so it loads this repository's <code>.github/hooks/jev-policy.json</code>
+  too. That means the hook sees the <code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code>
+  functions that <em>the host itself registered</em>. Without the narrow exemption in the gate, the
+  repository's own hook denies the agent's own Jev calls and levels 6, 7, and 10 fail with a fail-closed
+  hook error.</p>
+  <p><code>jev-tool-with-secret</code> is the guard on that exemption. Its payload carries
+  <code>Authorization: Bearer abc123</code> inside the Jev call's own state argument. Because the
+  credential layer runs <em>before</em> the exemption, it still returns <span class="pill ask">ask</span>
+  and the secret is never forwarded. Ordering inside the gate is load-bearing, and this sample is what
+  stops someone from reordering it during a refactor.</p>
+</div>
+
+<h2 id="step7"><span class="stepnum">7</span>Run the real Copilot CLI hook</h2>
+
+<p>This is the demo people remember. The checked-in
+<a href="../.github/hooks/jev-policy.json"><code>.github/hooks/jev-policy.json</code></a> registers a
+native <code>preToolUse</code> command hook:</p>
+
+<div class="code">
+  <div class="code-head">.github/hooks/jev-policy.json<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "bash ./scripts/jev-hook.sh",
+        "powershell": "$sh = if (Get-Command pwsh -ErrorAction SilentlyContinue) { \"pwsh\" } else { \"powershell\" }; &amp; $sh -NoProfile <span class="hl">-ExecutionPolicy Bypass -File</span> ./scripts/jev-hook.ps1",
+        "cwd": ".",
+        "timeoutSec": <span class="hl">8</span>
+      }
+    ]
+  }
+}</code></pre>
+</div>
+
+<div class="callout danger">
+  <strong>Choose the mode before starting Copilot</strong>
+  <p>Repository hook configuration and the environment are read when the CLI <em>starts</em>. Changing
+  <code>JEV_MODE</code> inside a running session has no effect. Set it, then launch.</p>
+</div>
+
+<h3>Start a gated session</h3>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:JEV_MODE = "mock"
+copilot</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>export JEV_MODE=mock
+copilot</code></pre>
+</div>
+
+<h3>Prompts that produce all three outcomes</h3>
+
+<table>
+<thead><tr><th>Say this to Copilot</th><th>Expected</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>"Show me what is in <code>src/Jev.Core/CopilotToolGate.cs</code>"</td><td><span class="pill allow">allow</span></td><td>Read-only fast path, instant, no model call</td></tr>
+<tr><td>"Add a comment to the top of <code>src/Jev.Core/JevJson.cs</code>"</td><td><span class="pill ask">ask</span></td><td>Ordinary mutation, Jev does not clear the allow bar</td></tr>
+<tr><td>"Run <code>git push --force origin main</code>"</td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny before Jev is consulted</td></tr>
+<tr><td>"Show me the contents of <code>.env</code>"</td><td><span class="pill ask">ask</span></td><td>Credential stop overrides the read-only fast path</td></tr>
+</tbody>
+</table>
+
+<h3>The four modes</h3>
+
+<table>
+<thead><tr><th><code>JEV_MODE</code></th><th>Behaviour</th><th>Network</th><th>Use for</th></tr></thead>
+<tbody>
+<tr><td><code>off</code> <em>(default)</em></td><td>Deterministic rules only; every other mutation becomes <span class="pill ask">ask</span></td><td>None</td><td>Safest baseline</td></tr>
+<tr><td><code>mock</code></td><td>Deterministic local Jev simulator</td><td>None</td><td>Demos, offline, CI</td></tr>
+<tr><td><code>live</code></td><td>Real TypeSafe Jev API, 2-second HTTP cap</td><td>api.typesafe.ai</td><td>Real evaluation</td></tr>
+<tr><td><code>auto</code></td><td><code>live</code> when <code>TYPESAFE_API_KEY</code> is set, otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
+</tbody>
+</table>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>There are three failure-semantics facts in this section, and they are the most transferable content
+  in the entire repository. Anyone building an agent hook needs all three.</p>
+  <p><b>1. A crash or non-zero exit fails closed.</b> Copilot treats it as deny. Sounds safe, and it is,
+  but the failure mode is brutal: <em>every</em> tool call in the session is denied and the user has no
+  idea why. This is exactly why the Windows hook entry keeps
+  <code>-ExecutionPolicy Bypass -File</code>. A default Windows execution policy refuses to load an
+  unsigned <code>.ps1</code>, PowerShell exits non-zero, and the session silently becomes unusable. Both
+  wrapper scripts therefore always exit 0 and print a decision object even when they cannot do their job.</p>
+  <p><b>2. A hook timeout fails OPEN.</b> Copilot falls back to its normal permission flow. This is the
+  one failure mode that can let something through, so the adapter refuses to depend on the outer timeout
+  at all. It starts its own <code>CancellationTokenSource</code> covering stdin reading and the entire
+  gate evaluation, and converts expiry into an explicit <span class="pill ask">ask</span>. The nesting is
+  deliberate: <b>2s live HTTP cap &lt; 4s <code>JEV_HOOK_DEADLINE_MS</code> &lt; 8s
+  <code>timeoutSec</code>.</b> If you change one number, change the others.</p>
+  <p><b>3. Under Copilot's cloud agent there is nobody to answer <code>ask</code>, so ask is treated as
+  deny.</b> The pleasant consequence is that a policy tuned for interactive use is strictly more
+  restrictive in the cloud, never less. Worth stating explicitly, because the instinct is to assume the
+  unattended path is the risky one.</p>
+  <p>If you want one live moment that sells the whole design: run the session, ask Copilot to force push,
+  and let the audience watch the deny come back in a few milliseconds with a human-readable reason. Then
+  point out that no model was consulted for that decision.</p>
+</div>
+
+<h3>The hook contract, precisely</h3>
+
+<div class="code">
+  <div class="code-head">stdin -&gt; the hook<div class="spacer"></div></div>
+<pre><code>{
+  "sessionId": "demo",
+  "timestamp": 0,
+  "cwd": ".",
+  "toolName": "bash",
+  "toolArgs": { "command": "git push --force origin main" }
+}</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">stdout &lt;- the hook (exactly one object, exit 0)<div class="spacer"></div></div>
+<pre><code>{"permissionDecision":"deny","permissionDecisionReason":"Deterministic policy matched a destructive command pattern."}</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>"Exactly one JSON object" is not stylistic advice. Two objects printed back to back concatenate into
+  invalid JSON and the whole decision is discarded. The adapter has a single <code>Emit</code> helper and
+  every code path calls it exactly once, including both catch blocks.</p>
+  <p>Also note <code>NormalizeToolName</code> in <code>Program.cs</code>. Different agent CLIs name the
+  same primitives differently (<code>read</code> vs <code>view</code>, <code>shell</code> vs
+  <code>bash</code>, <code>str_replace</code> vs <code>edit</code>). Normalizing at the boundary is what
+  keeps the read-only fast path meaningful across hosts, and it means porting this hook to another agent
+  runtime is mostly a matter of extending one switch expression.</p>
+  <p>Finally: the reason string is part of the contract, not decoration. It is what the developer sees
+  when their command is blocked. A policy that says "denied" with no reason gets disabled; one that says
+  "deterministic policy matched a destructive command pattern" gets understood.</p>
+</div>
+
+<h2 id="step8"><span class="stepnum">8</span>Levels 6 and 7: Jev as Agent Framework function tools</h2>
+
+<p>These levels need an authenticated GitHub Copilot CLI. They host Copilot as a Microsoft Agent
+Framework <code>AIAgent</code> and hand it Jev as ordinary function tools.</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 6 --jev mock
+dotnet run --project src/TenLevels.Jev -- --level 7 --jev mock</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">src/TenLevels.Jev/Copilot/JevToolSet.cs<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>public IList&lt;AIFunctionDeclaration&gt; AllTools() =&gt;
+[
+    AIFunctionFactory.Create(NoulAsync,   "jev_noul",   "Ask Jev a bounded yes/no question and receive a probability from 0 to 1."),
+    AIFunctionFactory.Create(ChoiceAsync, "jev_choice", "Ask Jev to choose one item from a bounded list and receive probabilities/confidence."),
+    AIFunctionFactory.Create(ScoreAsync,  "jev_score",  "Ask Jev to rate state against an ordered list of descriptive levels."),
+];</code></pre>
+</div>
+
+<p>Level 6 gives the agent <em>only</em> <code>jev_noul</code>. Level 7 gives it all three and asks it to
+compose them. Neither level grants the agent shell, file, or URL permissions.</p>
+
+<div class="callout warn">
+  <strong>These agents get no execution tools on purpose</strong>
+  <p>The Agent Framework levels demonstrate decision composition. Granting them Copilot's built-in
+  shell and file permissions would create a second, hidden execution-policy surface next to the hook,
+  which would muddy exactly the lesson the repo is trying to teach.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>The contrast between level 5 and level 6 is the one to draw here, because it is a genuine
+  architectural fork rather than an incremental step.</p>
+  <p>In level 5 <em>your code</em> decided when to consult Jev. In level 6 <em>the agent</em> decides,
+  because Jev is now a tool declaration in its context window. You have traded determinism for
+  flexibility. Both are legitimate; they answer different questions. Use the tool form when the agent is
+  doing the reasoning and needs a bounded sub-judgment. Use the gate form when you are enforcing policy,
+  because policy must not be optional.</p>
+  <p>Level 7's prompt asks the agent to both classify (Choice) and score (Score) the same task, which
+  shows composition. The system instructions explicitly tell it to use ordinary reasoning for arithmetic
+  and deterministic facts. That guardrail is important: the failure mode of giving a model a "decide"
+  tool is that it starts routing everything through it, including questions it could answer exactly.</p>
+  <p>One operational note worth saying while it runs: the first invocation is slow because the Copilot
+  runtime has to start. If it fails, the level runner catches the exception and prints "Level N needs a
+  working, authenticated GitHub Copilot runtime," rather than dumping a stack trace. With
+  <code>--all --include-agent</code> it records a non-zero exit code and keeps going.</p>
+</div>
+
+<h2 id="step9"><span class="stepnum">9</span>Level 10, the skill, and the custom agent</h2>
+
+<p>Level 10 removes the instruction to use Jev. The agent is told what Jev is good for and then asked a
+question where the right answer may well be "do not use Jev at all."</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 10 --jev mock</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">the prompt it is given<div class="spacer"></div></div>
+<pre><code>"Should I run the entire test suite for a change that only renames a public
+ JSON property and updates its serializer mapping?"
+
+Decide for yourself whether Jev is useful. If it is, formulate a narrow typed
+question and call the appropriate tool; otherwise explain why not.</code></pre>
+</div>
+
+<h3>The CLI-native equivalent</h3>
+
+<p>The same behaviour is taught to plain <code>copilot</code> sessions by two checked-in files.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Agent skill</h4>
+    <p><code>.github/skills/jev-decisions/SKILL.md</code>. Copilot can select it automatically when a task
+    matches its description, or you can request it explicitly with <code>/jev-decisions</code>.</p>
+  </div>
+  <div class="card">
+    <h4>Custom agent</h4>
+    <p><code>.github/agents/jev-engineer.agent.md</code>. Select it in-session with <code>/agent</code>,
+    or launch it directly from the command line.</p>
+  </div>
+</div>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>copilot --agent=jev-engineer --prompt "Review this change and use Jev only if a bounded semantic decision would help."</code></pre>
+</div>
+
+<p>The skill's guardrails are the distilled version of everything above:</p>
+
+<ol>
+  <li>Prefer deterministic inspection, tests, parsers, compilers, linters, and arithmetic over Jev whenever they can answer the question directly.</li>
+  <li>Keep the input state limited to evidence relevant to the judgment. Never send secrets.</li>
+  <li>Do not ask Jev to write code, execute commands, invent policy, or make open-ended plans.</li>
+  <li>The caller owns thresholds and policy. Jev is evidence, not authorization.</li>
+  <li>Preserve uncertainty. Below the threshold, escalate to a person.</li>
+  <li>The repository <code>preToolUse</code> hook remains authoritative and must not be bypassed.</li>
+</ol>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Level 10 is the only level where "the agent chose not to use the tool" is a <em>passing</em> result.
+  Say that before you run it, so the audience is watching for the right thing. A test-suite scoping
+  question is partly deterministic (the compiler and the reference graph know who touches that property),
+  so an agent that answers "I can determine this by inspection" has understood the lesson better than one
+  that reflexively calls <code>jev_score</code>.</p>
+  <p>Note the division of labour between the two files, because people conflate them. The <b>skill</b> is
+  knowledge: when this primitive is appropriate and how to shape the question. The <b>custom agent</b> is
+  a persona plus tool configuration. The skill is reusable by any agent; the agent profile is
+  repository-specific.</p>
+  <p>Worth calling out explicitly: <code>jev-engineer.agent.md</code> declares <code>tools: ["*"]</code>
+  but that is <em>not</em> a security hole, and explaining why demonstrates that the layering actually
+  works. The agent profile grants tool availability; the <code>preToolUse</code> hook still sits in the
+  normal lifecycle and still gates every call. Capability and authorization are separate concerns, and
+  this repo keeps them in separate files. The agent profile even instructs the agent not to edit around
+  or disable the hook, and <code>copilot-instructions.md</code> repeats that at the repository level.</p>
+</div>
+
+<h2 id="step10"><span class="stepnum">10</span>Switch to live Jev</h2>
+
+<p>Everything above ran against the deterministic mock. Swapping in the real API is one environment
+variable and one flag.</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:TYPESAFE_API_KEY = "..."
+dotnet run --project src/TenLevels.Jev -- --level 4 --jev live</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>export TYPESAFE_API_KEY="..."
+dotnet run --project src/TenLevels.Jev -- --level 4 --jev live</code></pre>
+</div>
+
+<p>For the hook, set the mode as well, before launching Copilot:</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:JEV_MODE = "live"
+$env:TYPESAFE_API_KEY = "..."
+copilot</code></pre>
+</div>
+
+<div class="callout">
+  <strong>Timeouts differ between the two callers</strong>
+  <p>The CLI levels use a 15-second HTTP timeout. The hook constructs its client with a hard
+  <b>2-second</b> cap, because it is on the critical path of every tool call and must return before
+  the 4-second internal deadline.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Two things change the moment you go live, and both are worth naming before someone discovers them in
+  production.</p>
+  <p><b>Determinism disappears.</b> The mock returns 0.94 for High every single time. A real model does
+  not. Run level 4 twice in live mode and the numbers move. This is why the thresholds in
+  <code>CopilotToolGate</code> have margin built in rather than sitting at 0.50, and it is why the same
+  ambiguous command can produce <span class="pill ask">ask</span> on one run and
+  <span class="pill allow">allow</span> on the next if you set the bar too close to the noise floor.</p>
+  <p><b>Your tool arguments leave the machine.</b> That is precisely what the credential layer is
+  defending against, and it is also the question to put to any organization adopting this pattern: is a
+  remote model call permitted for the data being evaluated at all? For some repositories the honest
+  answer is no, and <code>JEV_MODE=off</code> plus the deterministic layers is the correct deployment.
+  The repo supports that mode as a first-class option rather than a degraded one.</p>
+  <p><code>JEV_MODE=auto</code> is the pragmatic middle for shared configuration: live when a key is
+  present, <code>off</code> when it is not, and never an accidental hard failure because someone cloned
+  the repo without a key.</p>
+</div>
+
+<hr>
+
+<h2 id="ref-env">Reference: environment variables</h2>
+
+<table>
+<thead><tr><th>Variable</th><th>Default</th><th>Read by</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>JEV_MODE</code></td><td><code>off</code></td><td>Hook adapter</td><td><code>off</code> / <code>mock</code> / <code>live</code> / <code>auto</code></td></tr>
+<tr><td><code>TYPESAFE_API_KEY</code></td><td>(none)</td><td>Both</td><td>Bearer token for the Jev API. Required for <code>live</code>.</td></tr>
+<tr><td><code>JEV_MODEL</code></td><td><code>jev-latest</code></td><td>HTTP client</td><td>Model name sent in the request body</td></tr>
+<tr><td><code>JEV_HOOK_DEADLINE_MS</code></td><td><code>4000</code></td><td>Hook adapter</td><td>Internal deadline. Must stay below <code>timeoutSec</code>.</td></tr>
+<tr><td><code>COPILOT_CLI_PATH</code></td><td>(none)</td><td>Levels 6, 7, 10</td><td>Path to a Copilot binary when not using the SDK-downloaded one</td></tr>
+<tr><td><code>COPILOT_HOME</code></td><td><code>~/.copilot</code></td><td>Copilot CLI</td><td>Where Copilot keeps session state and config</td></tr>
+</tbody>
+</table>
+
+<h2 id="ref-cli">Reference: CLI flags</h2>
+
+<div class="code">
+  <div class="code-head">dotnet run --project src/TenLevels.Jev -- --help<div class="spacer"></div></div>
+<pre><code>  --list                  List the levels and exit.
+  --level &lt;n&gt;             Run one level (default: 1).
+  --all                   Run every level that does not need a Copilot runtime.
+  --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
+  --jev &lt;mock|live&gt;       Decision provider (default: mock).
+                          'live' requires TYPESAFE_API_KEY.</code></pre>
+</div>
+
+<p>Exit codes: <code>0</code> success, <code>1</code> a Copilot-backed level failed, <code>2</code> bad
+arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ctrl+C</span>.</p>
+
+<h2 id="ref-files">Reference: file map</h2>
+
+<table>
+<thead><tr><th>Path</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs mirroring the TypeSafe OpenAPI schemas</td></tr>
+<tr><td><code>src/Jev.Core/IJevClient.cs</code></td><td>The one-method interface both providers implement</td></tr>
+<tr><td><code>src/Jev.Core/JevHttpClient.cs</code></td><td>Live client. Small on purpose so the wire contract is inspectable.</td></tr>
+<tr><td><code>src/Jev.Core/MockJevClient.cs</code></td><td>Deterministic offline simulator driven by risk bands</td></tr>
+<tr><td><code>src/Jev.Core/RiskHeuristics.cs</code></td><td>Anchored regexes: hard deny, credential shapes, demo risk bands</td></tr>
+<tr><td><code>src/Jev.Core/CopilotToolGate.cs</code></td><td>The layered policy engine. Shared by levels 5, 8, 9, and the hook.</td></tr>
+<tr><td><code>src/Jev.CopilotHook/Program.cs</code></td><td>stdin/stdout <code>preToolUse</code> adapter with its own deadline</td></tr>
+<tr><td><code>src/TenLevels.Jev/Levels/</code></td><td>The ten level demos, one file each</td></tr>
+<tr><td><code>src/TenLevels.Jev/Copilot/</code></td><td>Agent Framework runner and the Jev function-tool set</td></tr>
+<tr><td><code>scripts/jev-hook.ps1</code> / <code>.sh</code></td><td>Thin wrappers. Always exit 0, always print one decision.</td></tr>
+<tr><td><code>scripts/test-hook.ps1</code> / <code>.sh</code></td><td>Replays every sample and asserts its expected decision</td></tr>
+<tr><td><code>samples/hooks/*.json</code></td><td>Nine payloads, each with its expected decision and a note</td></tr>
+<tr><td><code>.github/hooks/jev-policy.json</code></td><td>The native Copilot CLI hook registration</td></tr>
+<tr><td><code>tests/Jev.Core.SelfTests/</code></td><td>Dependency-free smoke tests, both directions per rule</td></tr>
+</tbody>
+</table>
+
+<h2 id="ref-mock">Reference: mock determinism table</h2>
+
+<p>Use this to predict every offline output before you run it. <code>RiskHeuristics.Classify</code> puts
+the state into a band, and <code>MockJevClient</code> maps the band to fixed values.</p>
+
+<table>
+<thead><tr><th>Band</th><th>Triggered by</th><th>Noul</th><th>Choice</th><th>Confidence</th><th>Normalized score</th></tr></thead>
+<tbody>
+<tr><td><b>Low</b></td><td>Nothing matched</td><td>0.03</td><td><span class="pill allow">allow</span></td><td>0.94</td><td>0.05</td></tr>
+<tr><td><b>Medium</b></td><td>install, deploy, git commit/push, edit, package, snapshot</td><td>0.58</td><td><span class="pill ask">ask</span></td><td>0.76</td><td>0.52</td></tr>
+<tr><td><b>High</b></td><td>Hard-deny match, credential match, auth/crypto, system paths, prod + destructive verb, drop table</td><td>0.94</td><td><span class="pill deny">deny</span></td><td>0.94</td><td>0.95</td></tr>
+</tbody>
+</table>
+
+<p>Score output is <code>normalized &times; (levels - 1)</code>. With a four-level rubric, Medium gives
+<code>0.52 &times; 3 = 1.56</code>, which is exactly what levels 3 and 4 print.</p>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Keep this table open on a second screen during a live demo. It lets you answer "why did it say 0.76?"
+  instantly and with confidence, which is the difference between a demo that looks engineered and one that
+  looks lucky.</p>
+  <p>It also makes the mock <em>pedagogically</em> useful rather than merely convenient. Because the
+  Medium band's confidence of 0.76 sits deliberately below the gate's allow threshold of 0.75 on
+  probability and 0.85 on allow-mass, you can demonstrate the threshold arithmetic live and it will land
+  the same way every time.</p>
+</div>
+
+<h2 id="troubleshoot">Troubleshooting</h2>
+
+<table>
+<thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr>
+  <td>Build fails with <code>NU1507</code></td>
+  <td>A machine-level NuGet feed leaked in; Central Package Management needs exactly one source</td>
+  <td>Keep the <code>&lt;clear /&gt;</code> in <code>NuGet.config</code>, or add explicit package source mapping</td>
+</tr>
+<tr>
+  <td><code>TenLevels.Jev</code> fails on <code>registry.npmjs.org</code></td>
+  <td><code>GitHub.Copilot.SDK</code> downloads the Copilot CLI at build time</td>
+  <td>Build with <code>-p:CopilotSkipCliDownload=true</code> and set <code>COPILOT_CLI_PATH</code>, or point <code>-p:CopilotNpmRegistryUrl</code> at a mirror, or set <code>-p:CopilotCliBinaryPath</code></td>
+</tr>
+<tr>
+  <td>Every tool call in a Copilot session is denied</td>
+  <td>The hook exits non-zero. On Windows this is usually the PowerShell execution policy refusing an unsigned <code>.ps1</code>.</td>
+  <td>Keep <code>-ExecutionPolicy Bypass -File</code> in the hook entry. Test the wrapper standalone by piping a sample into it.</td>
+</tr>
+<tr>
+  <td>Every tool call returns <span class="pill ask">ask</span> with "Jev hook is not built"</td>
+  <td>The compiled hook DLL is missing</td>
+  <td>Run <code>./scripts/bootstrap.ps1</code> (or <code>.sh</code>)</td>
+</tr>
+<tr>
+  <td>Hook always answers "did not reach a decision in time"</td>
+  <td>The internal deadline expired, usually a slow live Jev call</td>
+  <td>Raise <code>JEV_HOOK_DEADLINE_MS</code>, and raise <code>timeoutSec</code> above it, or switch to <code>mock</code></td>
+</tr>
+<tr>
+  <td>Changing <code>JEV_MODE</code> has no effect</td>
+  <td>Hook config and environment are read at CLI start</td>
+  <td>Exit Copilot, set the variable, start it again</td>
+</tr>
+<tr>
+  <td><code>TYPESAFE_API_KEY is not set</code>, exit code 2</td>
+  <td><code>--jev live</code> without a key</td>
+  <td>Set the key or use <code>--jev mock</code></td>
+</tr>
+<tr>
+  <td>Level 6, 7, or 10 fails with "needs a working, authenticated GitHub Copilot runtime"</td>
+  <td>Copilot CLI is missing, unauthenticated, or the runtime path is wrong</td>
+  <td>Authenticate the CLI, or set <code>COPILOT_CLI_PATH</code> to an installed binary</td>
+</tr>
+<tr>
+  <td>The agent's own <code>jev_*</code> calls get denied</td>
+  <td>The exemption list in <code>CopilotToolGate</code> was removed or renamed</td>
+  <td>Restore <code>jev_noul</code>, <code>jev_choice</code>, <code>jev_score</code> in <code>JevDecisionTools</code></td>
+</tr>
+</tbody>
+</table>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Rows three and four are the two failure modes that deserve a live rehearsal before any demo, because
+  they are indistinguishable from "the demo is broken" and they fail in opposite directions.</p>
+  <p>If the hook exits non-zero, Copilot denies everything and the session appears to be catatonic. If the
+  hook is simply unbuilt, every call becomes an approval prompt and the session appears to be paranoid.
+  Both look like the tool is broken rather than the setup being wrong. Pipe one sample payload through the
+  wrapper before you present, and you will know in two seconds which world you are in.</p>
+</div>
+
+<h2 id="hardening">Production hardening</h2>
+
+<p>This repository optimizes for readability. Before promoting the pattern to organizational policy,
+work through this list:</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>Parsing</h4>
+    <p>Replace regexes with real shell and command-line parsing. Regexes cannot follow <code>rm $VAR</code>,
+    base64 payloads, or creative quoting.</p>
+  </div>
+  <div class="card">
+    <h4>Secrets</h4>
+    <p>Add dedicated secret detection and redaction before any external model call.
+    <code>LooksSensitive</code> is a shape matcher, not a scanner.</p>
+  </div>
+  <div class="card">
+    <h4>Distribution</h4>
+    <p>Sign and version the policy. A repository hook is only as trustworthy as the repository, and
+    hooks execute as the local user.</p>
+  </div>
+  <div class="card">
+    <h4>Observability</h4>
+    <p>Add audit logging of every decision plus latency and error telemetry. You cannot tune thresholds
+    you cannot measure.</p>
+  </div>
+  <div class="card">
+    <h4>Enforcement</h4>
+    <p>Use enterprise policy hooks or sandboxing where a repository-level hook is not a strong enough
+    boundary, particularly for the fail-open timeout path.</p>
+  </div>
+  <div class="card">
+    <h4>Test corpus</h4>
+    <p>Derive policy tests from real tool traces, not from imagination. The nine samples here are a
+    starting shape, not a sufficient corpus.</p>
+  </div>
+</div>
+
+<div class="callout danger">
+  <strong>The question to answer first</strong>
+  <p>Decide whether a remote Jev call is permitted at all for the data being evaluated. Tool arguments
+  routinely contain source code, file paths, and repository structure. For some organizations the correct
+  deployment is <code>JEV_MODE=off</code> with the deterministic layers only.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Close on the honest version, because credibility is worth more than a clean ending: this is a
+  <em>teaching</em> repository and the README says so in the first line. What transfers to production is
+  not the code, it is the four structural decisions.</p>
+  <ol>
+    <li><b>Layer order</b>: deterministic rules before the model, always. The model gets the ambiguous
+    middle and nothing else.</li>
+    <li><b>Ownership</b>: thresholds are C# literals in version control, reviewed in pull requests, not
+    prose inside a prompt.</li>
+    <li><b>Failure direction</b>: every degraded path lands on "ask a human," and the one failure mode
+    that fails open is defended against by an inner deadline rather than trusted.</li>
+    <li><b>Two-sided tests</b>: every rule has a command that must match and a benign command that must
+    not, so loosening a rule is visible in a diff.</li>
+  </ol>
+  <p>Those four hold regardless of whether you use Jev, a different model, or no model at all.</p>
+</div>
+
+<h2 id="script">The 15-minute demo script</h2>
+
+<table>
+<thead><tr><th>Time</th><th>Do</th><th>Say</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>0:00</b></td>
+  <td><code>--level 1 --jev mock</code> then levels 2, 3, 4</td>
+  <td>Introduce Noul, Choice, Score. The threshold is a C# literal, not a prompt.</td>
+</tr>
+<tr>
+  <td><b>3:00</b></td>
+  <td><code>--level 5 --jev mock</code></td>
+  <td>Three inputs, three decisions, three different layers. Walk the 0.12 / 0.76 / 0.12 arithmetic out loud.</td>
+</tr>
+<tr>
+  <td><b>5:30</b></td>
+  <td>Show the substring-versus-anchored table</td>
+  <td>Four of five naive rules are false positives on ordinary developer commands.</td>
+</tr>
+<tr>
+  <td><b>7:00</b></td>
+  <td><code>./scripts/test-hook.ps1</code></td>
+  <td>Nine payloads, each asserting a decision. Four are regressions from real mistakes.</td>
+</tr>
+<tr>
+  <td><b>9:00</b></td>
+  <td><code>$env:JEV_MODE="mock"; copilot</code>. Read a file, edit a file, propose a force push.</td>
+  <td>Allow, ask, deny in a live session. The deny came back with no model call.</td>
+</tr>
+<tr>
+  <td><b>12:00</b></td>
+  <td><code>--level 7</code> with an authenticated runtime</td>
+  <td>Same Jev, different integration shape: function tools instead of a gate.</td>
+</tr>
+<tr>
+  <td><b>13:30</b></td>
+  <td><code>--level 10</code> plus <code>/jev-decisions</code></td>
+  <td>The agent decides whether a bounded judgment is even the right primitive.</td>
+</tr>
+<tr>
+  <td><b>15:00</b></td>
+  <td>Close</td>
+  <td>Jev advises; code authorizes. Ask is the default, never allow.</td>
+</tr>
+</tbody>
+</table>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Cut points, in order, if you are short on time: drop level 6 (level 7 subsumes it), then level 3
+  (mention Score rather than running it), then the live Copilot session. Never cut the level 5 threshold
+  arithmetic or the substring-versus-anchored table. Those two carry the argument; everything else is
+  supporting evidence.</p>
+  <p>If you have thirty minutes rather than fifteen, spend the extra time in two places: open
+  <code>CopilotToolGate.cs</code> and read the layer order top to bottom on screen, and open one sample
+  JSON file and read its <code>note</code> field. Both make the point that the policy is small enough for
+  a human to audit in full, which is itself a security property.</p>
+</div>
+
+<div class="footer">
+  <p><b>Ten Levels of Jev for .NET + GitHub Copilot.</b> MIT licensed. An independent demo, not an
+  official TypeSafe, GitHub, or Microsoft project.</p>
+  <p>Related reading in this repository:
+  <a href="../README.md">README.md</a> &middot;
+  <a href="LEVELS.md">docs/LEVELS.md</a> &middot;
+  <a href="ARCHITECTURE.md">docs/ARCHITECTURE.md</a> &middot;
+  <a href="SECURITY.md">docs/SECURITY.md</a> &middot;
+  <a href="SOURCES.md">docs/SOURCES.md</a></p>
+</div>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var body = document.body;
+
+  // ---- theme -------------------------------------------------------------
+  var themeBtn = document.getElementById('themeBtn');
+  function applyTheme(t) {
+    root.setAttribute('data-theme', t);
+    themeBtn.textContent = t === 'dark' ? 'Light' : 'Dark';
+    try { localStorage.setItem('jev-tutorial-theme', t); } catch (e) {}
+  }
+  var stored = null;
+  try { stored = localStorage.getItem('jev-tutorial-theme'); } catch (e) {}
+  applyTheme(stored || (window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  themeBtn.addEventListener('click', function () {
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  // ---- presenter notes ---------------------------------------------------
+  var notesBtn = document.getElementById('notesBtn');
+  function applyNotes(on) {
+    body.classList.toggle('hide-notes', !on);
+    notesBtn.setAttribute('aria-pressed', String(on));
+    notesBtn.textContent = 'Presenter notes: ' + (on ? 'on' : 'off');
+    try { localStorage.setItem('jev-tutorial-notes', on ? '1' : '0'); } catch (e) {}
+  }
+  var notesStored = null;
+  try { notesStored = localStorage.getItem('jev-tutorial-notes'); } catch (e) {}
+  applyNotes(notesStored !== '0');
+  notesBtn.addEventListener('click', function () {
+    applyNotes(body.classList.contains('hide-notes'));
+  });
+
+  // ---- print -------------------------------------------------------------
+  document.getElementById('printBtn').addEventListener('click', function () { window.print(); });
+
+  // ---- copy buttons ------------------------------------------------------
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = btn.closest('.code').querySelector('pre');
+      if (!pre) return;
+      var text = pre.innerText;
+      var done = function () {
+        btn.textContent = 'Copied';
+        btn.classList.add('done');
+        setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () {});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  // ---- scroll progress + active TOC link ---------------------------------
+  var progress = document.getElementById('progress');
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var targets = links
+    .map(function (a) { return document.querySelector(a.getAttribute('href')); })
+    .filter(Boolean);
+
+  function onScroll() {
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + '%';
+
+    var current = null;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i].getBoundingClientRect().top <= 120) current = targets[i];
+    }
+    links.forEach(function (a) {
+      a.classList.toggle('active', current !== null && a.getAttribute('href') === '#' + current.id);
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  onScroll();
+})();
+</script>
+</body>
+</html>

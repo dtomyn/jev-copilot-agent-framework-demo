@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- GitHub.Copilot.SDK downloads the Copilot CLI from registry.npmjs.org during build.
+         Its default timeout is 600s, which turns a blocked network into a ten-minute hang
+         instead of an actionable error. Override with -p:CopilotCliDownloadTimeout=<seconds>. -->
+    <CopilotCliDownloadTimeout Condition="'$(CopilotCliDownloadTimeout)' == ''">90</CopilotCliDownloadTimeout>
+  </PropertyGroup>
+</Project>

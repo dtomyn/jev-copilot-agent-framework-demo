@@ -1,0 +1,1 @@
+{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"bash","toolArgs":{"command":"dotnet format JevCopilotDemo.sln"},"expectedDecision":"ask","note":"Regression case: a substring match on 'format ' hard-denied this benign formatter. It is a mutation, so 'ask' is correct, but never 'deny'."}

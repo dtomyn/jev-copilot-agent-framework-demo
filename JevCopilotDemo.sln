@@ -1,0 +1,36 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jev.Core", "src/Jev.Core/Jev.Core.csproj", "{1B1CE559-2C37-4FAE-96B6-1C1268B77AE1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TenLevels.Jev", "src/TenLevels.Jev/TenLevels.Jev.csproj", "{801F99C0-E851-42B4-8373-D3AC0E596AB5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jev.CopilotHook", "src/Jev.CopilotHook/Jev.CopilotHook.csproj", "{DF9449B9-58F3-4AA8-90E1-C4D55750B511}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jev.Core.SelfTests", "tests/Jev.Core.SelfTests/Jev.Core.SelfTests.csproj", "{26F8E78E-16E1-4F25-81A6-8CA1387543A3}"
+EndProject
+Global
+  GlobalSection(SolutionConfigurationPlatforms) = preSolution
+    Debug|Any CPU = Debug|Any CPU
+    Release|Any CPU = Release|Any CPU
+  EndGlobalSection
+  GlobalSection(ProjectConfigurationPlatforms) = postSolution
+    {1B1CE559-2C37-4FAE-96B6-1C1268B77AE1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {1B1CE559-2C37-4FAE-96B6-1C1268B77AE1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+    {1B1CE559-2C37-4FAE-96B6-1C1268B77AE1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {1B1CE559-2C37-4FAE-96B6-1C1268B77AE1}.Release|Any CPU.Build.0 = Release|Any CPU
+    {801F99C0-E851-42B4-8373-D3AC0E596AB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {801F99C0-E851-42B4-8373-D3AC0E596AB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+    {801F99C0-E851-42B4-8373-D3AC0E596AB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {801F99C0-E851-42B4-8373-D3AC0E596AB5}.Release|Any CPU.Build.0 = Release|Any CPU
+    {DF9449B9-58F3-4AA8-90E1-C4D55750B511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {DF9449B9-58F3-4AA8-90E1-C4D55750B511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+    {DF9449B9-58F3-4AA8-90E1-C4D55750B511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {DF9449B9-58F3-4AA8-90E1-C4D55750B511}.Release|Any CPU.Build.0 = Release|Any CPU
+    {26F8E78E-16E1-4F25-81A6-8CA1387543A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {26F8E78E-16E1-4F25-81A6-8CA1387543A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+    {26F8E78E-16E1-4F25-81A6-8CA1387543A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {26F8E78E-16E1-4F25-81A6-8CA1387543A3}.Release|Any CPU.Build.0 = Release|Any CPU
+  EndGlobalSection
+EndGlobal

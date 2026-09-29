@@ -1,0 +1,1 @@
+{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"bash","toolArgs":{"command":"git push --force origin main"},"expectedDecision":"deny","note":"Deterministic hard deny; never reaches Jev."}
