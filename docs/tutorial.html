@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ten Levels of Jev - step-by-step tutorial with presenter notes</title>
+<title>Ten Levels of Typed Decisions - step-by-step tutorial with presenter notes</title>
 <style>
 :root{
   --bg:#ffffff; --bg-alt:#f6f8fa; --bg-sunken:#eef1f5;
@@ -174,7 +174,9 @@ tbody tr:nth-child(even){background:var(--bg-alt)}
     <li><a href="#step7">7. Run the real Copilot hook</a></li>
     <li><a href="#step8">8. Levels 6-7: Agent Framework</a></li>
     <li><a href="#step9">9. Level 10, skill, custom agent</a></li>
-    <li><a href="#step10">10. Switch to live Jev</a></li>
+    <li><a href="#step10">10. Switch to a live engine</a></li>
+    <li><a href="#step11">11. Install and run Laya locally</a></li>
+    <li><a href="#step12">12. Prove the provider switch</a></li>
   </ol>
   <h2>Reference</h2>
   <ol>
@@ -189,7 +191,7 @@ tbody tr:nth-child(even){background:var(--bg-alt)}
 </nav>
 
 <main>
-<h1 id="intro">Ten Levels of Jev: step-by-step tutorial</h1>
+<h1 id="intro">Ten Levels of Typed Decisions: step-by-step tutorial</h1>
 <p class="lede">
 A guided walkthrough of this repository, from a single probability inside an ordinary <code>if</code>
 statement to a GitHub Copilot CLI session where a .NET policy hook decides which tool calls are
@@ -202,6 +204,7 @@ explaining what is really going on.
   <span class="chip">GitHub Copilot CLI</span>
   <span class="chip">Microsoft Agent Framework 1.22.0</span>
   <span class="chip">TypeSafe Jev API</span>
+  <span class="chip">Laya (open source)</span>
   <span class="chip">Windows / macOS / Linux</span>
 </div>
 
@@ -214,12 +217,15 @@ explaining what is really going on.
   from an actual run of this repository, not written by hand.</p>
 </div>
 
-<h2 id="model">The mental model: Jev advises, code authorizes</h2>
+<h2 id="model">The mental model: the model advises, code authorizes</h2>
 
 <p>
-Jev (the TypeSafe "System One" API) answers <em>bounded semantic questions</em> very fast: a yes/no
+A System-One decision engine answers <em>bounded semantic questions</em> very fast: a yes/no
 probability, a one-of-N choice, or a position on an ordered rubric. It is deliberately not a planner
-and not a code generator.
+and not a code generator. Two of them are supported here and are interchangeable: the hosted TypeSafe
+Jev API, and <a href="https://github.com/NandhaKishorM/laya">Laya</a>, which is open source and runs in
+a container on your own machine. They speak the same wire protocol. Step 11 installs and runs Laya
+from scratch; step 12 proves the switch changes no decision.
 </p>
 <p>
 This repository takes that primitive and walks it up ten levels until it is sitting inside a real
@@ -295,10 +301,22 @@ should run. One idea holds the whole progression together:
     <code>copilot</code> session and watch the <code>preToolUse</code> hook make real decisions.</p>
   </div>
   <div class="card">
-    <h4>Tier 3 - optional</h4>
-    <p><b>A TypeSafe API key</b> in <code>TYPESAFE_API_KEY</code> to replace the deterministic mock with
-    live Jev calls, plus network access to <code>api.typesafe.ai</code>.</p>
+    <h4>Tier 3 - optional, live engine</h4>
+    <p><b>Docker Desktop</b> plus <b>git</b>, to build and run open-source <b>Laya</b> locally
+    (step 11), <b>or</b> a TypeSafe API key in <code>TYPESAFE_API_KEY</code> plus network access to
+    <code>api.typesafe.ai</code>. Either replaces the deterministic mock; neither is needed for
+    levels 1-5, 8, or 9.</p>
   </div>
+</div>
+
+<div class="callout">
+  <strong>Two independent switches, and you will use both</strong>
+  <p><code>--provider</code> / <code>DECISION_PROVIDER</code> picks <em>which engine</em>
+  (<code>jev</code> or <code>laya</code>). <code>--mode</code> / <code>DECISION_MODE</code> picks
+  <em>how you reach it</em> (<code>mock</code>, <code>live</code>, and for the hook also
+  <code>off</code> and <code>auto</code>). Every combination is valid, including
+  <code>--provider laya --mode mock</code>, which needs no Docker and no network but still
+  reproduces Laya's own <code>confidence</code> arithmetic offline.</p>
 </div>
 
 <h3>Verify what you have</h3>
@@ -307,15 +325,24 @@ should run. One idea holds the whole progression together:
   <div class="code-head">PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
 <pre><code>dotnet --list-sdks
 Get-Command copilot -ErrorAction SilentlyContinue
-$env:TYPESAFE_API_KEY</code></pre>
+$env:TYPESAFE_API_KEY
+git --version
+docker --version
+docker info --format '{{.ServerVersion}}'</code></pre>
 </div>
 
 <div class="code">
   <div class="code-head">bash<div class="spacer"></div><button class="copy">Copy</button></div>
 <pre><code>dotnet --list-sdks
 command -v copilot
-echo "${TYPESAFE_API_KEY:-(not set)}"</code></pre>
+echo "${TYPESAFE_API_KEY:-(not set)}"
+git --version
+docker --version
+docker info --format '{{.ServerVersion}}'</code></pre>
 </div>
+
+<p><code>docker info</code> printing a server version (rather than an error) is the check that
+matters for step 11: <code>docker --version</code> succeeds even when the daemon is not running.</p>
 
 <p>A working Tier 1 machine prints at least one <code>10.0.x</code> SDK:</p>
 
@@ -385,8 +412,9 @@ echo "${TYPESAFE_API_KEY:-(not set)}"</code></pre>
 ...
 Bootstrap complete.
 
-Try: dotnet run --project src/TenLevels.Jev -- --list
-Then: $env:JEV_MODE="mock"; copilot</code></pre>
+Try:  dotnet run --project src/TenLevels.Jev -- --list
+Then: $env:DECISION_MODE="mock"; copilot
+Live open-source provider: ./scripts/laya-up.ps1  (see docs/LAYA.md)</code></pre>
 </div>
 
 <div class="callout danger">
@@ -394,7 +422,7 @@ Then: $env:JEV_MODE="mock"; copilot</code></pre>
   <p>The Copilot hook wrapper executes a <em>pre-built</em> DLL. It never restores or builds inside the
   hook. If <code>src/Jev.CopilotHook/bin/Release/net10.0/Jev.CopilotHook.dll</code> is missing, the
   wrapper deliberately returns <span class="pill ask">ask</span> for every tool call with the reason
-  "Jev hook is not built."</p>
+  "The policy hook is not built. Run ./scripts/bootstrap.ps1; require human approval until then."</p>
 </div>
 
 <div class="notes">
@@ -413,12 +441,19 @@ Then: $env:JEV_MODE="mock"; copilot</code></pre>
   <code>allow</code> and not a crash. Every degraded path in this repo lands on "ask a human."</p>
 </div>
 
-<h2 id="step2"><span class="stepnum">2</span>The three Jev primitives and the wire format</h2>
+<h2 id="step2"><span class="stepnum">2</span>The three primitives and the wire format</h2>
 
 <p>
-Before running anything, look at the shape of a Jev request. One <code>state</code>, one model, and a
-named dictionary of typed questions. You can ask several questions of different types about the same
+Before running anything, look at the shape of a request. One <code>state</code>, an optional model, and
+a named dictionary of typed questions. You can ask several questions of different types about the same
 state in a single round trip.
+</p>
+
+<p>
+Two engines answer this exact request: hosted <b>TypeSafe Jev</b> and open-source <b>Laya</b>, whose
+<code>laya-serve</code> implements the same <code>POST /v1/systemone</code> contract on purpose. Pick one
+with <code>--provider</code>; everything else in this tutorial is identical. Step 11 installs Laya
+locally in Docker and step 12 compares the two side by side.
 </p>
 
 <div class="code">
@@ -513,7 +548,7 @@ interchangeable everywhere in the repo:</p>
   has a winner, but it is a coin flip, and code that only looks at <code>choice</code> cannot tell the
   difference between that and a 0.95 landslide.</p>
   <p><b>Why the interface is this small.</b> One method, one state, a dictionary of questions. That is
-  what lets <code>MockJevClient</code> and <code>JevHttpClient</code> be swapped by a single CLI flag,
+  what lets <code>MockJevClient</code> and <code>SystemOneHttpClient</code> be swapped by a single CLI flag,
   and it is why the self-tests can assert the exact serialized wire shape against a stub
   <code>HttpMessageHandler</code> without any network.</p>
 </div>
@@ -534,18 +569,36 @@ interchangeable everywhere in the repo:</p>
 03  Ordered risk
 04  Parallel typed judgments
 05  Code owns the policy
-06  Jev becomes a Copilot tool            <span class="warn">[Copilot runtime]</span>
-07  Copilot gets the Jev toolbelt         <span class="warn">[Copilot runtime]</span>
+06  The decision engine becomes a Copilot tool  <span class="warn">[Copilot runtime]</span>
+07  Copilot gets the decision toolbelt  <span class="warn">[Copilot runtime]</span>
 08  Native Copilot preToolUse hook
 09  Confidence-aware human escalation
-10  The agent reaches for Jev itself      <span class="warn">[Copilot runtime]</span></code></pre>
+10  The agent reaches for the decision engine itself  <span class="warn">[Copilot runtime]</span></code></pre>
 </div>
 
-<p>Then run every level that does not need a Copilot runtime:</p>
+<p>Then run every level that does not need a Copilot runtime. Name the provider explicitly, so the
+run is reproducible whatever is already set in your environment:</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>dotnet run --project src/TenLevels.Jev -- --all --jev mock</code></pre>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --all --provider jev --mode mock</code></pre>
+</div>
+
+<p>The very first line of any run names the client that will actually answer:</p>
+
+<div class="code">
+  <div class="code-head">output - first line<div class="spacer"></div></div>
+<pre><code>Decision provider: <span class="ok">Jev mock (offline, deterministic)</span></code></pre>
+</div>
+
+<div class="callout">
+  <strong>That header line is your ground truth</strong>
+  <p>It is printed from the client object that was constructed, not from the flags you typed, so it
+  is the fastest way to catch a stray environment variable. The four forms you will meet in this
+  tutorial are <code>Jev mock (offline, deterministic)</code>,
+  <code>Laya mock (offline, deterministic)</code>,
+  <code>Laya live (http://127.0.0.1:8010/, router-selected model, no bearer token)</code>, and
+  <code>Jev live (https://api.typesafe.ai/, model=jev-latest)</code>.</p>
 </div>
 
 <h3>Level 01 - the smart if-statement</h3>
@@ -596,7 +649,7 @@ Console.WriteLine(answer.Noul &gt;= <span class="hl">0.80</span> ? "C# policy: B
 <pre><code>=== Level 02: Typed routing ===
 Replace a pile of fuzzy conditionals with a bounded Choice.
 
-route: choice=<span class="warn">ask</span>, confidence=0.76</code></pre>
+route: choice=<span class="warn">ask</span>, confidence=0.64 (answer=0.76)</code></pre>
 </div>
 
 <p>The state is "Copilot proposes to install a new global CLI package and update PATH." The answer space
@@ -608,9 +661,15 @@ is written out in advance as three named options with descriptions, so the model
   <code>if (command.Contains("install")) ... else if (command.Contains("global")) ...</code> that nobody
   can keep correct as the surface grows. The Choice version states the answer space once, and the
   interesting part becomes the criteria text rather than the control flow.</p>
-  <p>The confidence of 0.76 is not a rounding artifact. The mock returns 0.94 for confident bands (Low
-  and High) and 0.76 for the Medium band, so "the model is unsure" is reproducible on stage. You will use
-  that 0.76 again at level 5, where it is exactly what fails the allow threshold.</p>
+  <p>Two confidence numbers are printed, and the difference is the subject of step 12. The mock puts
+  0.76 of the probability mass on <code>ask</code> for the Medium band, so <code>answer=0.76</code>. The
+  leading <code>confidence=0.64</code> is the provider's own definition of the word, here Jev's
+  <code>(n&times;p_max - 1)/(n - 1)</code>; run the same level with <code>--provider laya</code> and it
+  reads 0.35, because Laya defines <code>confidence</code> as normalized entropy. Same distribution, same
+  decision, different number. Policy in this repo reads <code>answer</code> only.</p>
+  <p>The 0.76 is not a rounding artifact either: the mock puts 0.94 on confident bands (Low and High) and
+  0.76 on the Medium band, so "the model is unsure" is reproducible on stage. You will use that 0.76
+  again at level 5, where it is exactly what fails the allow threshold.</p>
 </div>
 
 <h3>Level 03 - ordered risk</h3>
@@ -620,7 +679,7 @@ is written out in advance as three named options with descriptions, so the model
 <pre><code>=== Level 03: Ordered risk ===
 Use a Score when the answer is an ordered rubric rather than a category.
 
-risk: score=<span class="warn">1.56</span>, confidence=0.73</code></pre>
+risk: score=<span class="warn">1.56</span>, confidence=0.84 (answer=0.88)</code></pre>
 </div>
 
 <p>The rubric has four descriptive levels, so valid scores run from 0.0 to 3.0:</p>
@@ -655,10 +714,44 @@ risk: score=<span class="warn">1.56</span>, confidence=0.73</code></pre>
 Ask Noul, Choice, and Score questions together against one state.
 
 has_side_effect: noul=0.58
-route: choice=<span class="warn">ask</span>, confidence=0.76
-risk: score=1.56, confidence=0.73
+route: choice=<span class="warn">ask</span>, confidence=0.64 (answer=0.76)
+risk: score=1.56, confidence=0.84 (answer=0.88)
 model=mock-jev, input_tokens=20</code></pre>
 </div>
+
+<p>Now run the identical level against the other engine's mock. No Docker, no network, no key:</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode mock</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>Decision provider: Laya mock (offline, deterministic)
+
+=== Level 04: Parallel typed judgments ===
+Ask Noul, Choice, and Score questions together against one state.
+
+has_side_effect: noul=0.58
+route: choice=ask, confidence=<span class="warn">0.35</span> (answer=<span class="ok">0.76</span>)
+risk: score=1.56, confidence=<span class="warn">0.64</span> (answer=<span class="ok">0.88</span>)
+model=mock-laya, input_tokens=20
+routing=mock (no checkpoint loaded)</code></pre>
+</div>
+
+<div class="callout danger">
+  <strong>Read those two outputs side by side - this is the central lesson of the provider work</strong>
+  <p>The <code>choice</code>, the <code>score</code>, and the <code>answer=</code> numbers are
+  <em>byte-for-byte identical</em>. Only <code>confidence=</code> moved, from 0.64 to 0.35 and from
+  0.84 to 0.64, because the two engines compute that field from different formulas over the same
+  distribution. Anything that thresholds on <code>confidence=</code> silently demands a different
+  amount of evidence per provider. Everything in this repository thresholds on
+  <code>answer=</code> instead.</p>
+</div>
+
+<p>Laya also fills in a <code>routing</code> line that Jev has no equivalent for - which checkpoint
+answered and why. The mock prints a placeholder; step 11 shows the real one.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
@@ -666,9 +759,11 @@ model=mock-jev, input_tokens=20</code></pre>
   This matters for two practical reasons: latency (one round trip instead of three) and coherence (all
   three judgments are made against exactly the same evidence, so they cannot disagree because one of them
   saw a different description).</p>
-  <p>The <code>input_tokens</code> line is worth a beat. Jev is priced and budgeted like any other model
-  call, and a hook that runs on every tool call in a long agent session makes that cost real. The usage
-  block is surfaced in the demo output specifically so nobody forgets there is a meter running.</p>
+  <p>The <code>input_tokens</code> line is worth a beat. A hosted engine is priced and budgeted like any
+  other model call, and a hook that runs on every tool call in a long agent session makes that cost real.
+  The usage block is surfaced in the demo output specifically so nobody forgets there is a meter running.
+  A self-hosted Laya container moves that meter from an invoice to your own CPU, which is a different
+  trade rather than a free one.</p>
   <p>Design guidance to offer here: prefer one request with several named questions over several
   requests. Name the questions after what you will do with the answer (<code>has_side_effect</code>,
   <code>route</code>, <code>risk</code>), not after the model.</p>
@@ -682,13 +777,13 @@ and the real Copilot hook all reuse unchanged.</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>dotnet run --project src/TenLevels.Jev -- --level 5 --jev mock</code></pre>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 5 --provider jev --mode mock</code></pre>
 </div>
 
 <div class="code">
   <div class="code-head">output<div class="spacer"></div></div>
 <pre><code>=== Level 05: Code owns the policy ===
-Jev advises; deterministic rules and confidence thresholds decide allow/ask/deny.
+The model advises; deterministic rules and confidence thresholds decide allow/ask/deny.
 
 view     -&gt; <span class="ok">Allow</span> | Read-only tool fast path.
 bash     -&gt; <span class="warn">Ask</span>   | Jev did not clear the confidence threshold; require human approval.
@@ -712,8 +807,8 @@ bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a d
   <div class="layer l-deny"><div class="n">1</div><div class="t"><b>Deterministic hard deny</b><span>Anchored regexes for explicitly destructive commands. Returns <b>deny</b>. Jev is never called.</span></div></div>
   <div class="layer l-ask"><div class="n">2</div><div class="t"><b>Credential stop</b><span>Anything that looks like secret material returns <b>ask</b> and is never forwarded to an external API.</span></div></div>
   <div class="layer l-allow"><div class="n">3</div><div class="t"><b>Read-only fast path</b><span>Known non-mutating tool names return <b>allow</b> with no model call and no latency.</span></div></div>
-  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host Jev tool exemption</b><span><code>jev_noul</code>, <code>jev_choice</code>, <code>jev_score</code> return a judgment and cannot mutate anything.</span></div></div>
-  <div class="layer l-jev"><div class="n">5</div><div class="t"><b>Jev semantic classification</b><span>The ambiguous middle becomes a bounded Choice over allow / ask / deny.</span></div></div>
+  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host decision-tool exemption</b><span>All six names - <code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code> and <code>laya_noul</code> / <code>laya_choice</code> / <code>laya_score</code> - return a judgment and cannot mutate anything.</span></div></div>
+  <div class="layer l-jev"><div class="n">5</div><div class="t"><b>Provider semantic classification</b><span>The ambiguous middle becomes a bounded Choice over allow / ask / deny, answered by whichever engine is selected.</span></div></div>
   <div class="layer l-jev"><div class="n">6</div><div class="t"><b>Code-owned thresholds</b><span>C# literals turn probability and confidence into a decision.</span></div></div>
   <div class="layer l-ask"><div class="n">7</div><div class="t"><b>Default: ask a human</b><span>Everything that did not clear a threshold escalates. Ask is the fallback, never allow.</span></div></div>
 </div>
@@ -722,13 +817,47 @@ bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a d
 
 <div class="code">
   <div class="code-head">src/Jev.Core/CopilotToolGate.cs<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>if (deny &gt;= <span class="hl">0.55</span> || (answer.Choice.Equals("deny", OrdinalIgnoreCase) &amp;&amp; answer.Confidence &gt;= <span class="hl">0.60</span>))
-    return new GateResult(GateDecision.Deny, "Jev classified the tool call as unsafe ...");
+<pre><code>// Gate on AnswerConfidence (max(p)), never on the provider's own `confidence` field: Jev
+// reports (n*p_max - 1)/(n - 1) and Laya reports normalized entropy, so a threshold tuned
+// against one provider would silently loosen or tighten against the other.
+double confidence = <span class="hl">answer.AnswerConfidence</span>;
 
-if (allow &gt;= <span class="hl">0.85</span> &amp;&amp; answer.Confidence &gt;= <span class="hl">0.75</span>)
-    return new GateResult(GateDecision.Allow, "Jev classified the tool call as low risk ...");
+if (deny &gt;= <span class="hl">0.55</span> || (answer.Choice.Equals("deny", OrdinalIgnoreCase) &amp;&amp; confidence &gt;= <span class="hl">0.60</span>))
+    return new GateResult(GateDecision.Deny, $"{ProviderName} classified the tool call as unsafe ...", confidence);
 
-return new GateResult(GateDecision.Ask, "Jev did not clear the confidence threshold ...");</code></pre>
+if (allow &gt;= <span class="hl">0.85</span> &amp;&amp; confidence &gt;= <span class="hl">0.75</span>)
+    return new GateResult(GateDecision.Allow, $"{ProviderName} classified the tool call as low risk ...", confidence);
+
+return new GateResult(GateDecision.Ask, $"{ProviderName} did not clear the confidence threshold ...", confidence);</code></pre>
+</div>
+
+<div class="callout good">
+  <strong>Two lines here carry the entire provider story</strong>
+  <p><code>answer.AnswerConfidence</code> is <code>max(p)</code>, which both engines define the same
+  way. <code>answer.Confidence</code> - the field that arrives on the wire and looks like the obvious
+  one to read - is <em>not</em> comparable across providers and appears nowhere in this file.
+  <code>ProviderName</code> is the only other provider-aware thing in the gate, and it only affects
+  the human-readable reason string, which is why the same run under Laya reads
+  "<code>Laya did not clear the confidence threshold</code>".</p>
+</div>
+
+<p>Run level 5 under both engines and confirm the decision column does not move:</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 5 --provider laya --mode mock</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>Decision provider: Laya mock (offline, deterministic)
+
+=== Level 05: Code owns the policy ===
+The model advises; deterministic rules and confidence thresholds decide allow/ask/deny.
+
+view     -&gt; <span class="ok">Allow</span> | Read-only tool fast path.
+bash     -&gt; <span class="warn">Ask</span>   | <span class="hl">Laya</span> did not clear the confidence threshold; require human approval.
+bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a destructive command pattern.</code></pre>
 </div>
 
 <div class="notes">
@@ -807,8 +936,22 @@ wrong in <em>both</em> directions, which is why every rule is an anchored regex:
 <span class="ok">PASS</span>  sensitive: AKIAIOSFODNN7EXAMPLE
 <span class="ok">PASS</span>  sensitive: -----BEGIN RSA PRIVATE KEY-----
 <span class="ok">PASS</span>  http client posts the documented request and parses all three answer types
+<span class="ok">PASS</span>  http client surfaces API errors instead of inventing an answer
+<span class="ok">PASS</span>  environment selects laya and defaults to the local laya-serve container
+<span class="ok">PASS</span>  LAYA_BASE_URL alone selects laya and is normalized with a trailing slash
+<span class="ok">PASS</span>  jev stays the default and still demands a key
+<span class="ok">PASS</span>  a laya request omits model and sends no bearer token when none is configured
+<span class="ok">PASS</span>  a laya response contributes answer_confidence and routing
+<span class="ok">PASS</span>  the gate thresholds on max(p), not on the provider's confidence field
+<span class="ok">PASS</span>  an undecided laya answer still escalates to a human
+<span class="ok">PASS</span>  switching provider does not change a single gate decision in mock mode
+<span class="ok">PASS</span>  the mock reproduces each provider's own confidence definition
 <span class="ok">All self-tests passed.</span></code></pre>
 </div>
+
+<p>Fifty-eight checks run in well under a second with no network and no test framework. The last nine
+above are the provider suite: they pin that selecting Laya changes the endpoint, the credentials and
+the <code>model</code> field, and changes <em>no gate decision at all</em>.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
@@ -832,7 +975,7 @@ hook decisions without starting Copilot.</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>dotnet run --project src/TenLevels.Jev -- --level 9 --jev mock</code></pre>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 9 --provider jev --mode mock</code></pre>
 </div>
 
 <div class="code">
@@ -873,8 +1016,10 @@ hook decisions without starting Copilot.</p>
 
 <h2 id="step6"><span class="stepnum">6</span>Test the hook without starting Copilot</h2>
 
-<p>Nine sample payloads live in <code>samples/hooks/</code>. Each one carries the decision it must
-produce, so the test script is an assertion, not a printout.</p>
+<p>Ten sample payloads live in <code>samples/hooks/</code>. Each one carries the decision it must
+produce, so the test script is an assertion, not a printout. The script pins
+<code>DECISION_MODE=mock</code> itself, so the result is identical on any machine regardless of what
+your shell has set.</p>
 
 <div class="code">
   <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
@@ -895,6 +1040,7 @@ produce, so the test script is an assertion, not a printout.</p>
 <span class="ok">PASS</span>  force-with-lease     -&gt; ask
 <span class="ok">PASS</span>  jev-tool-with-secret -&gt; ask
 <span class="ok">PASS</span>  jev-tool             -&gt; allow
+<span class="ok">PASS</span>  laya-tool            -&gt; allow
 <span class="ok">PASS</span>  read                 -&gt; allow
 <span class="ok">PASS</span>  secret-read          -&gt; ask</code></pre>
 </div>
@@ -903,13 +1049,13 @@ produce, so the test script is an assertion, not a printout.</p>
 
 <div class="code">
   <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>$env:JEV_MODE = "mock"
+<pre><code>$env:DECISION_MODE = "mock"
 Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
 </div>
 
 <div class="code">
   <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>JEV_MODE=mock ./scripts/jev-hook.sh &lt; samples/hooks/edit.json</code></pre>
+<pre><code>DECISION_MODE=mock ./scripts/jev-hook.sh &lt; samples/hooks/edit.json</code></pre>
 </div>
 
 <div class="code wrap">
@@ -917,39 +1063,83 @@ Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
 <pre><code>{"permissionDecision":"ask","permissionDecisionReason":"Jev did not clear the confidence threshold; require human approval."}</code></pre>
 </div>
 
-<h3>The nine samples and why each one exists</h3>
+<p>Add <code>DECISION_PROVIDER=laya</code> and the decision is unchanged while the reason renames
+itself. This is the hook-level version of the level 5 comparison above:</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:DECISION_MODE = "mock"
+$env:DECISION_PROVIDER = "laya"
+Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>DECISION_MODE=mock DECISION_PROVIDER=laya ./scripts/jev-hook.sh &lt; samples/hooks/edit.json</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">stdout<div class="spacer"></div></div>
+<pre><code>{"permissionDecision":<span class="ok">"ask"</span>,"permissionDecisionReason":"<span class="hl">Laya</span> did not clear the confidence threshold; require human approval."}</code></pre>
+</div>
+
+<p>And the decision-tool exemption under the Laya prefix:</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>Get-Content -Raw samples/hooks/laya-tool.json | ./scripts/jev-hook.ps1</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">stdout<div class="spacer"></div></div>
+<pre><code>{"permissionDecision":"allow","permissionDecisionReason":"Host-registered decision tool; it returns a judgment and cannot mutate anything."}</code></pre>
+</div>
+
+<div class="callout warn">
+  <strong>Unset <code>DECISION_PROVIDER</code> before you carry on</strong>
+  <p>It persists for the rest of the shell session and will silently change what every later command
+  in this tutorial does. <code>Remove-Item Env:DECISION_PROVIDER</code> on Windows,
+  <code>unset DECISION_PROVIDER</code> elsewhere.</p>
+</div>
+
+<h3>The ten samples and why each one exists</h3>
 
 <table>
 <thead><tr><th>Sample</th><th>Expected</th><th>What it protects</th></tr></thead>
 <tbody>
-<tr><td><code>read</code></td><td><span class="pill allow">allow</span></td><td>Read-only fast path, no Jev call at all</td></tr>
+<tr><td><code>read</code></td><td><span class="pill allow">allow</span></td><td>Read-only fast path, no model call at all</td></tr>
 <tr><td><code>edit</code></td><td><span class="pill ask">ask</span></td><td>Ordinary mutation that does not clear the allow threshold</td></tr>
-<tr><td><code>force-push</code></td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny, never reaches Jev</td></tr>
+<tr><td><code>force-push</code></td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny, never reaches the model</td></tr>
 <tr><td><code>curl-pipe-shell</code></td><td><span class="pill deny">deny</span></td><td>Regression: a substring rule misses this real-world form</td></tr>
 <tr><td><code>dotnet-format</code></td><td><span class="pill ask">ask</span></td><td>Regression: a substring rule wrongly hard-denied a formatter</td></tr>
 <tr><td><code>force-with-lease</code></td><td><span class="pill ask">ask</span></td><td>The safe variant is intentionally not hard-denied</td></tr>
 <tr><td><code>secret-read</code></td><td><span class="pill ask">ask</span></td><td>Reading <code>.env</code> escalates instead of taking the read fast path</td></tr>
-<tr><td><code>jev-tool</code></td><td><span class="pill allow">allow</span></td><td>The host's own Jev function tools must not be denied</td></tr>
+<tr><td><code>jev-tool</code></td><td><span class="pill allow">allow</span></td><td>The host's own decision function tools must not be denied</td></tr>
+<tr><td><code>laya-tool</code></td><td><span class="pill allow">allow</span></td><td>The same exemption under the other provider's tool prefix</td></tr>
 <tr><td><code>jev-tool-with-secret</code></td><td><span class="pill ask">ask</span></td><td>The credential check runs <em>before</em> that exemption</td></tr>
 </tbody>
 </table>
 
 <div class="notes">
   <div class="label">Presenter note</div>
-  <p>Point out that four of these nine samples are <em>regression</em> cases. They exist because an
+  <p>Point out that four of these ten samples are <em>regression</em> cases. They exist because an
   earlier, more naive version of the rule got them wrong. Each sample file even carries a
   <code>note</code> field explaining the mistake it prevents. That is a good pattern to copy wholesale:
   a policy corpus where each case documents the bug it was born from.</p>
-  <p>The last two rows are the subtlest pair in the repo and reward slowing down.</p>
+  <p>The last three rows are the subtlest group in the repo and reward slowing down.</p>
   <p><code>jev-tool</code> must be <span class="pill allow">allow</span> because of an interaction most
   people do not anticipate: the Copilot runtime that Microsoft Agent Framework spawns runs in this
   repository's working directory, so it loads this repository's <code>.github/hooks/jev-policy.json</code>
   too. That means the hook sees the <code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code>
   functions that <em>the host itself registered</em>. Without the narrow exemption in the gate, the
-  repository's own hook denies the agent's own Jev calls and levels 6, 7, and 10 fail with a fail-closed
-  hook error.</p>
+  repository's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a
+  fail-closed hook error.</p>
+  <p><code>laya-tool</code> is the same case under the other engine. The function tools are named after
+  the selected provider, so the agent calls <code>laya_noul</code> rather than <code>jev_noul</code> when
+  it is running against Laya, and the hook - a separate process that cannot know which provider was
+  selected - has to allow both prefixes.</p>
   <p><code>jev-tool-with-secret</code> is the guard on that exemption. Its payload carries
-  <code>Authorization: Bearer abc123</code> inside the Jev call's own state argument. Because the
+  <code>Authorization: Bearer abc123</code> inside the decision call's own state argument. Because the
   credential layer runs <em>before</em> the exemption, it still returns <span class="pill ask">ask</span>
   and the secret is never forwarded. Ordering inside the gate is load-bearing, and this sample is what
   stops someone from reordering it during a refactor.</p>
@@ -982,20 +1172,21 @@ native <code>preToolUse</code> command hook:</p>
 <div class="callout danger">
   <strong>Choose the mode before starting Copilot</strong>
   <p>Repository hook configuration and the environment are read when the CLI <em>starts</em>. Changing
-  <code>JEV_MODE</code> inside a running session has no effect. Set it, then launch.</p>
+  <code>DECISION_MODE</code> or <code>DECISION_PROVIDER</code> inside a running session has no effect.
+  Set them, then launch.</p>
 </div>
 
 <h3>Start a gated session</h3>
 
 <div class="code">
   <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>$env:JEV_MODE = "mock"
+<pre><code>$env:DECISION_MODE = "mock"
 copilot</code></pre>
 </div>
 
 <div class="code">
   <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>export JEV_MODE=mock
+<pre><code>export DECISION_MODE=mock
 copilot</code></pre>
 </div>
 
@@ -1005,8 +1196,8 @@ copilot</code></pre>
 <thead><tr><th>Say this to Copilot</th><th>Expected</th><th>Why</th></tr></thead>
 <tbody>
 <tr><td>"Show me what is in <code>src/Jev.Core/CopilotToolGate.cs</code>"</td><td><span class="pill allow">allow</span></td><td>Read-only fast path, instant, no model call</td></tr>
-<tr><td>"Add a comment to the top of <code>src/Jev.Core/JevJson.cs</code>"</td><td><span class="pill ask">ask</span></td><td>Ordinary mutation, Jev does not clear the allow bar</td></tr>
-<tr><td>"Run <code>git push --force origin main</code>"</td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny before Jev is consulted</td></tr>
+<tr><td>"Add a comment to the top of <code>src/Jev.Core/JevJson.cs</code>"</td><td><span class="pill ask">ask</span></td><td>Ordinary mutation, the model does not clear the allow bar</td></tr>
+<tr><td>"Run <code>git push --force origin main</code>"</td><td><span class="pill deny">deny</span></td><td>Deterministic hard deny before any model is consulted</td></tr>
 <tr><td>"Show me the contents of <code>.env</code>"</td><td><span class="pill ask">ask</span></td><td>Credential stop overrides the read-only fast path</td></tr>
 </tbody>
 </table>
@@ -1014,14 +1205,17 @@ copilot</code></pre>
 <h3>The four modes</h3>
 
 <table>
-<thead><tr><th><code>JEV_MODE</code></th><th>Behaviour</th><th>Network</th><th>Use for</th></tr></thead>
+<thead><tr><th><code>DECISION_MODE</code></th><th>Behaviour</th><th>Network</th><th>Use for</th></tr></thead>
 <tbody>
 <tr><td><code>off</code> <em>(default)</em></td><td>Deterministic rules only; every other mutation becomes <span class="pill ask">ask</span></td><td>None</td><td>Safest baseline</td></tr>
-<tr><td><code>mock</code></td><td>Deterministic local Jev simulator</td><td>None</td><td>Demos, offline, CI</td></tr>
-<tr><td><code>live</code></td><td>Real TypeSafe Jev API, 2-second HTTP cap</td><td>api.typesafe.ai</td><td>Real evaluation</td></tr>
-<tr><td><code>auto</code></td><td><code>live</code> when <code>TYPESAFE_API_KEY</code> is set, otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
+<tr><td><code>mock</code></td><td>Deterministic local simulator</td><td>None</td><td>Demos, offline, CI</td></tr>
+<tr><td><code>live</code></td><td>The selected provider, 2-second HTTP cap</td><td>api.typesafe.ai, or localhost for Laya</td><td>Real evaluation</td></tr>
+<tr><td><code>auto</code></td><td><code>live</code> when the provider is configured (a key for Jev, a base URL for Laya), otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
 </tbody>
 </table>
+
+<p>The older <code>JEV_MODE</code> name is still read when <code>DECISION_MODE</code> is unset, so an
+existing shell or <code>.env</code> keeps working rather than silently falling back to <code>off</code>.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
@@ -1037,7 +1231,7 @@ copilot</code></pre>
   one failure mode that can let something through, so the adapter refuses to depend on the outer timeout
   at all. It starts its own <code>CancellationTokenSource</code> covering stdin reading and the entire
   gate evaluation, and converts expiry into an explicit <span class="pill ask">ask</span>. The nesting is
-  deliberate: <b>2s live HTTP cap &lt; 4s <code>JEV_HOOK_DEADLINE_MS</code> &lt; 8s
+  deliberate: <b>2s live HTTP cap &lt; 4s <code>DECISION_HOOK_DEADLINE_MS</code> &lt; 8s
   <code>timeoutSec</code>.</b> If you change one number, change the others.</p>
   <p><b>3. Under Copilot's cloud agent there is nobody to answer <code>ask</code>, so ask is treated as
   deny.</b> The pleasant consequence is that a policy tuned for interactive use is strictly more
@@ -1081,29 +1275,68 @@ copilot</code></pre>
   "deterministic policy matched a destructive command pattern" gets understood.</p>
 </div>
 
-<h2 id="step8"><span class="stepnum">8</span>Levels 6 and 7: Jev as Agent Framework function tools</h2>
+<h2 id="step8"><span class="stepnum">8</span>Levels 6 and 7: decisions as Agent Framework function tools</h2>
 
 <p>These levels need an authenticated GitHub Copilot CLI. They host Copilot as a Microsoft Agent
-Framework <code>AIAgent</code> and hand it Jev as ordinary function tools.</p>
+Framework <code>AIAgent</code> and hand it the decision engine as ordinary function tools.</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>dotnet run --project src/TenLevels.Jev -- --level 6 --jev mock
-dotnet run --project src/TenLevels.Jev -- --level 7 --jev mock</code></pre>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 6 --provider jev --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 7 --provider jev --mode mock</code></pre>
 </div>
 
+<p>The tool names are built from the selected provider, so a transcript always says which engine
+answered:</p>
+
 <div class="code">
-  <div class="code-head">src/TenLevels.Jev/Copilot/JevToolSet.cs<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>public IList&lt;AIFunctionDeclaration&gt; AllTools() =&gt;
+  <div class="code-head">src/TenLevels.Jev/Copilot/DecisionToolSet.cs<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>public DecisionToolSet(IJevClient jev)
+{
+    _jev = jev;
+    _prefix       = jev.Provider == DecisionProvider.Laya ? <span class="hl">"laya"</span> : <span class="hl">"jev"</span>;
+    _providerName = jev.Provider == DecisionProvider.Laya ? "Laya" : "Jev";
+}
+
+public string NoulToolName   =&gt; $"{_prefix}_noul";
+public string ChoiceToolName =&gt; $"{_prefix}_choice";
+public string ScoreToolName  =&gt; $"{_prefix}_score";
+
+public IList&lt;AIFunctionDeclaration&gt; AllTools() =&gt;
 [
-    AIFunctionFactory.Create(NoulAsync,   "jev_noul",   "Ask Jev a bounded yes/no question and receive a probability from 0 to 1."),
-    AIFunctionFactory.Create(ChoiceAsync, "jev_choice", "Ask Jev to choose one item from a bounded list and receive probabilities/confidence."),
-    AIFunctionFactory.Create(ScoreAsync,  "jev_score",  "Ask Jev to rate state against an ordered list of descriptive levels."),
+    AIFunctionFactory.Create(NoulAsync,   NoulToolName,   $"Ask {_providerName} a bounded yes/no question and receive a probability from 0 to 1."),
+    AIFunctionFactory.Create(ChoiceAsync, ChoiceToolName, $"Ask {_providerName} to choose one item from a bounded list and receive probabilities/confidence."),
+    AIFunctionFactory.Create(ScoreAsync,  ScoreToolName,  $"Ask {_providerName} to rate state against an ordered list of descriptive levels."),
 ];</code></pre>
 </div>
 
-<p>Level 6 gives the agent <em>only</em> <code>jev_noul</code>. Level 7 gives it all three and asks it to
+<p>Level 6 gives the agent <em>only</em> the Noul tool. Level 7 gives it all three and asks it to
 compose them. Neither level grants the agent shell, file, or URL permissions.</p>
+
+<p>The Choice tool returns <em>both</em> confidence numbers, named apart so a model reading the JSON
+cannot confuse them either:</p>
+
+<div class="code">
+  <div class="code-head">the JSON the agent receives back<div class="spacer"></div></div>
+<pre><code>{
+  "type": "choice",
+  "choice": "ask",
+  "confidence": 0.35,          <span class="warn">// the provider's own definition, display only</span>
+  "answerConfidence": 0.76,    <span class="ok">// max(p), comparable across providers</span>
+  "probabilities": { "allow": 0.12, "ask": 0.76, "deny": 0.12 }
+}</code></pre>
+</div>
+
+<div class="callout danger">
+  <strong>This is why the hook allow-lists six names, not three</strong>
+  <p>The Copilot runtime these levels spawn runs in this repository's working directory, so it loads
+  this repository's <code>.github/hooks/jev-policy.json</code> and the hook sees the agent's own
+  decision calls. The hook is a separate process and cannot know which provider the agent was
+  started with, so <code>CopilotToolGate</code> allows <code>jev_noul</code> /
+  <code>jev_choice</code> / <code>jev_score</code> <em>and</em> <code>laya_noul</code> /
+  <code>laya_choice</code> / <code>laya_score</code>. Drop either set and levels 6, 7, and 10 fail
+  for that provider with a fail-closed hook error.</p>
+</div>
 
 <div class="callout warn">
   <strong>These agents get no execution tools on purpose</strong>
@@ -1138,7 +1371,7 @@ question where the right answer may well be "do not use Jev at all."</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>dotnet run --project src/TenLevels.Jev -- --level 10 --jev mock</code></pre>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 10 --provider jev --mode mock</code></pre>
 </div>
 
 <div class="code">
@@ -1202,28 +1435,28 @@ question and call the appropriate tool; otherwise explain why not.</code></pre>
   or disable the hook, and <code>copilot-instructions.md</code> repeats that at the repository level.</p>
 </div>
 
-<h2 id="step10"><span class="stepnum">10</span>Switch to live Jev</h2>
+<h2 id="step10"><span class="stepnum">10</span>Switch to a live engine</h2>
 
-<p>Everything above ran against the deterministic mock. Swapping in the real API is one environment
-variable and one flag.</p>
+<p>Everything above ran against the deterministic mock. Swapping in a real engine is one flag plus
+whatever that engine needs: an API key for hosted Jev, a running container for Laya.</p>
 
 <div class="code">
   <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
 <pre><code>$env:TYPESAFE_API_KEY = "..."
-dotnet run --project src/TenLevels.Jev -- --level 4 --jev live</code></pre>
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live</code></pre>
 </div>
 
 <div class="code">
   <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
 <pre><code>export TYPESAFE_API_KEY="..."
-dotnet run --project src/TenLevels.Jev -- --level 4 --jev live</code></pre>
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live</code></pre>
 </div>
 
 <p>For the hook, set the mode as well, before launching Copilot:</p>
 
 <div class="code">
   <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>$env:JEV_MODE = "live"
+<pre><code>$env:DECISION_MODE = "live"
 $env:TYPESAFE_API_KEY = "..."
 copilot</code></pre>
 </div>
@@ -1247,11 +1480,535 @@ copilot</code></pre>
   <p><b>Your tool arguments leave the machine.</b> That is precisely what the credential layer is
   defending against, and it is also the question to put to any organization adopting this pattern: is a
   remote model call permitted for the data being evaluated at all? For some repositories the honest
-  answer is no, and <code>JEV_MODE=off</code> plus the deterministic layers is the correct deployment.
-  The repo supports that mode as a first-class option rather than a degraded one.</p>
-  <p><code>JEV_MODE=auto</code> is the pragmatic middle for shared configuration: live when a key is
-  present, <code>off</code> when it is not, and never an accidental hard failure because someone cloned
-  the repo without a key.</p>
+  answer is no, and <code>DECISION_MODE=off</code> plus the deterministic layers is the correct
+  deployment. The repo supports that mode as a first-class option rather than a degraded one - and a
+  self-hosted Laya container, covered next, is the other answer to the same objection.</p>
+  <p><code>DECISION_MODE=auto</code> is the pragmatic middle for shared configuration: live when the
+  provider is configured, <code>off</code> when it is not, and never an accidental hard failure because
+  someone cloned the repo without a key.</p>
+</div>
+
+<hr>
+
+<h2 id="step11"><span class="stepnum">11</span>Install and run Laya locally</h2>
+
+<p><a href="https://github.com/NandhaKishorM/laya">Laya</a> is an open-source, non-autoregressive
+System 1 decision engine. It answers the same <code>noul</code> / <code>choice</code> /
+<code>score</code> questions in a single forward pass, and its HTTP server <code>laya-serve</code>
+deliberately implements the same <code>POST /v1/systemone</code> contract, so this repository reaches
+it with the same client, the same DTOs, and the same policy code. This step builds it from source
+and runs it on your machine, end to end.</p>
+
+<div class="callout">
+  <strong>What you need, and how long it takes</strong>
+  <p>Docker Desktop running, <code>git</code>, roughly 8 GB of free disk and 6 GB of RAM available to
+  the container. The image build takes 5-15 minutes (it compiles a CPU build of PyTorch into the
+  layer), and the first start downloads three checkpoints into a named volume, which is another few
+  minutes. Every start after that is seconds, because the volume is warm.</p>
+</div>
+
+<h3>11.1 Create the compose project</h3>
+
+<p>The compose project lives <em>outside</em> this repository, because Laya is an upstream checkout
+rather than a vendored dependency. The scripts expect this layout, with
+<code>C:/laya-local</code> as the default:</p>
+
+<div class="code">
+  <div class="code-head">the layout <code>laya-up</code> expects<div class="spacer"></div></div>
+<pre><code>C:\laya-local\
+├── docker-compose.yml       # laya-serve, sandboxed, published on 127.0.0.1:8010
+├── compose.offline.yml      # optional override that cuts the container off from the network
+└── laya\                    # the cloned github.com/NandhaKishorM/laya checkout</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>New-Item -ItemType Directory -Force C:/laya-local | Out-Null
+git clone https://github.com/NandhaKishorM/laya C:/laya-local/laya</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>mkdir -p ~/laya-local
+git clone https://github.com/NandhaKishorM/laya ~/laya-local/laya
+export LAYA_HOME=~/laya-local</code></pre>
+</div>
+
+<h3>11.2 Write <code>docker-compose.yml</code></h3>
+
+<p>Save this next to the checkout, as <code>C:/laya-local/docker-compose.yml</code>. Every line that
+is not obvious carries the reason it is there.</p>
+
+<div class="code">
+  <div class="code-head">C:/laya-local/docker-compose.yml<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>services:
+  laya-serve:
+    build:
+      # The Dockerfile lives in the checkout and COPYs pyproject.toml, laya/, docker/
+      # and examples/docker/, so the build context has to be the repo root.
+      context: ./laya
+      args:
+        TORCH_INDEX: "${LAYA_TORCH_INDEX:-cpu}"
+        TORCH_VERSION: "${LAYA_TORCH_VERSION:-2.14.0}"
+    image: laya-local/laya-serve:cpu
+    container_name: laya-decision-service
+    # The image's default CMD is the one-shot SDK quickstart, which exits. The HTTP
+    # server is a separate console script; the ENTRYPOINT that loads *_FILE secrets
+    # still runs ahead of it.
+    command: ["laya-serve"]
+    ports:
+      # Loopback only: the API is unauthenticated until LAYA_API_KEY is set. The host
+      # side is 8010 rather than 8000 because http.sys reserves 8000 on Windows --
+      # `netsh int ipv4 show excludedportrange protocol=tcp` lists what is taken.
+      - "${LAYA_BIND_ADDRESS:-127.0.0.1}:${LAYA_HOST_PORT:-8010}:${LAYA_PORT:-8000}"
+    environment:
+      LAYA_HOST: "0.0.0.0"
+      LAYA_PORT: "${LAYA_PORT:-8000}"
+      LAYA_DEVICE: "cpu"
+      # english | multilingual | typed-decisions. Empty keeps the server's own default
+      # set, and routing picks one per request.
+      LAYA_MODELS: "${LAYA_MODELS:-}"
+      LAYA_PRELOAD: "${LAYA_PRELOAD:-1}"
+      LAYA_THREADS: "${OMP_NUM_THREADS:-4}"
+      OMP_NUM_THREADS: "${OMP_NUM_THREADS:-4}"
+      LAYA_LOG_LEVEL: "${LAYA_LOG_LEVEL:-info}"
+      # Set LAYA_API_KEY_PATH and enable the mount below to require
+      # `Authorization: Bearer &lt;key&gt;`. Never put the value here.
+      LAYA_API_KEY_FILE: "${LAYA_API_KEY_FILE:-}"
+      HF_HUB_OFFLINE: "${HF_HUB_OFFLINE:-0}"
+    volumes:
+      # HF_HOME in the image, owned by UID 10001. Mounting /root instead leaves the
+      # cache unwritable, so every restart would re-download the weights.
+      - model-cache:/home/laya/.cache/huggingface
+      # - ${LAYA_API_KEY_PATH:?Set LAYA_API_KEY_PATH}:/run/secrets/laya_api_key:ro
+
+    # --- sandboxing -----------------------------------------------------------
+    # The image already runs as UID 10001. These confine it further, so untrusted
+    # model code cannot escalate, write the image, or exhaust the host.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          pids: 512
+          cpus: "${LAYA_CPUS:-4}"
+          memory: "${LAYA_MEMORY:-6g}"
+
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['LAYA_PORT'] + '/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Preloading downloads and builds the checkpoints before the port binds.
+      start_period: 15m
+      start_interval: 5s
+
+volumes:
+  model-cache:</code></pre>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Do not skim the sandboxing block. This container runs model code downloaded from the internet,
+  and the whole reason an organization reaches for a local engine is that it does not want tool
+  arguments leaving the machine. A container that can write the host filesystem or open outbound
+  connections gives back most of what you came for.</p>
+  <p>The four that matter: <code>read_only: true</code> with a <code>noexec</code> tmpfs means
+  nothing downloaded at runtime can be written and then executed; <code>cap_drop: ALL</code> plus
+  <code>no-new-privileges</code> removes the escalation paths; the loopback-only port binding means
+  nothing on the LAN can reach an unauthenticated inference API; and the memory and pid limits stop
+  a runaway checkpoint load from taking the host down with it.</p>
+  <p>The port comment is a real Windows story rather than a preference. <code>http.sys</code>
+  reserves 8000 on many Windows machines, so the container listens on 8000 <em>inside</em> and
+  publishes 8010 <em>outside</em>. That is why <code>SystemOneEndpoint.DefaultLayaBaseAddress</code>
+  is <code>http://127.0.0.1:8010/</code> and not the port the upstream README shows.</p>
+</div>
+
+<h3>11.3 Start it and wait for <code>/health</code></h3>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/laya-up.ps1</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/laya-up.sh</code></pre>
+</div>
+
+<p>The script runs <code>docker compose up --detach --build</code> and then polls
+<code>/health</code> for up to twenty minutes, because returning a base URL that is not serving yet
+would only produce a confusing failure two commands later. While it waits it prints a dot every five
+seconds.</p>
+
+<div class="code">
+  <div class="code-head">output<div class="spacer"></div></div>
+<pre><code>Starting laya-serve from C:/laya-local/docker-compose.yml ...
+Waiting for http://127.0.0.1:8010/health (up to 20 minute(s); a cold start downloads the checkpoint)...
+..........................
+
+<span class="ok">laya-serve is ready.</span>
+  loaded checkpoints: multilingual, typed-decisions, english
+  device:             cpu
+
+Point the demo at it:
+  $env:DECISION_PROVIDER = 'laya'
+  $env:LAYA_BASE_URL = 'http://127.0.0.1:8010'
+  dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live</code></pre>
+</div>
+
+<p>Confirm independently, so you know the service and not the script is healthy:</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>curl -s http://127.0.0.1:8010/health</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">output (abridged)<div class="spacer"></div></div>
+<pre><code>{"status":"<span class="ok">ok</span>","loaded":["multilingual","typed-decisions","english"],
+ "revisions":{"english":"55cf4c4e...","multilingual":"55cf4c4e...","typed-decisions":"55cf4c4e..."},
+ "device":"cpu","device_is_preference":false,
+ "checkpoint_devices":{"multilingual":"cpu","typed-decisions":"cpu","english":"cpu"},
+ "cpu_fallbacks":{"multilingual":{"count":0,"last_reason":null}, ...}}</code></pre>
+</div>
+
+<h3>11.4 Send one request by hand</h3>
+
+<p>Before involving any .NET, prove the wire contract from step 2 against the real server. This is
+the same body shape the C# client posts:</p>
+
+<div class="code">
+  <div class="code-head">request.json<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>{
+  "state": "Copilot proposes: git push --force origin main",
+  "questions": {
+    "route": {
+      "type": "choice",
+      "instructions": "How should this tool call be handled?",
+      "criteria": {
+        "allow": "Low-risk and reversible",
+        "ask":   "Consequential or ambiguous",
+        "deny":  "Clearly prohibited"
+      }
+    }
+  }
+}</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>curl -s -H "content-type: application/json" --data @request.json http://127.0.0.1:8010/v1/systemone</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">actual response<div class="spacer"></div></div>
+<pre><code>{"model":"laya-rl-agent",
+ "answers":{"route":{"type":"choice","choice":<span class="bad">"allow"</span>,
+   "probabilities":{"allow":0.6487,"ask":0.2797,"deny":0.0717},
+   "confidence":0.2481,"<span class="ok">answer_confidence</span>":0.6487,
+   "action":{"act_probability":1.0}}},
+ "usage":{"input_tokens":46,"output_tokens":0},
+ "routing":{"model":"<span class="hl">english</span>","repo":"convaiinnovations/laya",
+   "reason":"Latin script, language not identified and no non-English letters; using default (english)",
+   "detection":{"script":"latin","language":null,"is_english":true, ...}}}</code></pre>
+</div>
+
+<div class="callout danger">
+  <strong>Stop here and look at that answer</strong>
+  <p>The zero-shot <code>english</code> checkpoint just said <code>allow</code>, with 0.649 of the
+  mass on it, for <code>git push --force origin main</code>. Run the same command through this
+  repository's gate and it comes back <span class="pill deny">deny</span> in under a millisecond,
+  because layer 1 is an anchored regex and the model is never consulted.</p>
+  <p>This is the entire thesis of the tutorial arriving as a live, reproducible fact rather than a
+  slide: <b>the model advises, code authorizes.</b> A design that had asked the model for permission
+  would have force-pushed.</p>
+</div>
+
+<p>Pin the fine-tuned checkpoint by adding <code>"model": "typed-decisions"</code> to the same body,
+and the answer improves without becoming trustworthy:</p>
+
+<div class="code wrap">
+  <div class="code-head">with <code>"model": "typed-decisions"</code><div class="spacer"></div></div>
+<pre><code>{"model":"laya-rl-agent",
+ "answers":{"route":{"type":"choice","choice":<span class="warn">"ask"</span>,
+   "probabilities":{"allow":0.4103,"ask":0.4496,"deny":0.1401},
+   "confidence":0.0895,"answer_confidence":0.4496}},
+ "routing":{"model":"<span class="hl">typed-decisions</span>","reason":"explicit model='typed-decisions'"}}</code></pre>
+</div>
+
+<p>Better - <code>ask</code> rather than <code>allow</code> - but 0.4496 on the winner is a coin
+flip, and the gate's allow bar is 0.85. Under this repository's policy that answer escalates to a
+human, which is the correct outcome for an answer this undecided.</p>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>Be straightforward about accuracy, because someone will check. Upstream reports 0.362 accuracy
+  for the base English checkpoint on its own typed-decisions benchmark against 0.766 for the
+  fine-tuned <code>laya-typed-decisions</code> checkpoint. Those are zero-shot numbers on a hard
+  task, and they are the reason this repository never lets a single model answer authorize anything.</p>
+  <p>The transferable conclusion is not "Laya is weak." It is that for a real policy gate,
+  fine-tuning on <em>your own</em> decisions matters far more than which engine you picked, and that
+  a layered design stays safe while the model underneath it is still bad. Treat every threshold in
+  this repository as a starting point to re-validate on your own traffic.</p>
+</div>
+
+<h3>11.5 Run the levels against the live container</h3>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:LAYA_BASE_URL = "http://127.0.0.1:8010"
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>export LAYA_BASE_URL=http://127.0.0.1:8010
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">actual output<div class="spacer"></div></div>
+<pre><code>Decision provider: <span class="ok">Laya live (http://127.0.0.1:8010/, router-selected model, no bearer token)</span>
+
+=== Level 04: Parallel typed judgments ===
+Ask Noul, Choice, and Score questions together against one state.
+
+has_side_effect: noul=0.10
+route: choice=allow, confidence=0.19 (answer=0.53)
+risk: score=1.10, confidence=0.69 (answer=0.89)
+model=laya-rl-agent, input_tokens=186
+<span class="hl">routing=english (English Latin text)</span></code></pre>
+</div>
+
+<p>Level 4 asks a Noul, a Choice, and a Score in one request, so it exercises all three answer shapes
+against the real service in a single round trip - about 8 seconds here, most of it process start.
+The header line confirms three things at once: the provider, the base URL, and that no bearer token
+is being sent.</p>
+
+<p>Then the policy levels, which is where it stops being a parlour trick:</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 5 --provider laya --mode live
+dotnet run --project src/TenLevels.Jev -- --level 9 --provider laya --mode live</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">actual output<div class="spacer"></div></div>
+<pre><code>Decision provider: Laya live (http://127.0.0.1:8010/, router-selected model, no bearer token)
+
+=== Level 05: Code owns the policy ===
+The model advises; deterministic rules and confidence thresholds decide allow/ask/deny.
+
+view     -&gt; <span class="ok">Allow</span> | Read-only tool fast path.
+bash     -&gt; <span class="warn">Ask</span>   | Laya did not clear the confidence threshold; require human approval.
+bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a destructive command pattern.
+
+=== Level 09: Confidence-aware human escalation ===
+
+<span class="ok">Allow</span> grep   confidence=1.00 | Read-only tool fast path.
+<span class="warn">Ask</span>   edit   confidence=<span class="hl">0.51</span> | Laya did not clear the confidence threshold; require human approval.
+<span class="bad">Deny</span>  bash   confidence=1.00 | Deterministic policy matched a destructive command pattern.</code></pre>
+</div>
+
+<p>Same three decisions as every mock run in this tutorial, from a real model on your own hardware.
+The only number that moved is the middle row's confidence, 0.76 under the mock and 0.51 here, and
+both are below the 0.85 allow bar, so both escalate.</p>
+
+<h3>11.6 Point the Copilot hook at it</h3>
+
+<p>Test the wrapper standalone first. It is one command and it tells you whether the hook can reach
+the container inside its 2-second HTTP cap:</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:DECISION_MODE = "live"
+$env:DECISION_PROVIDER = "laya"
+$env:LAYA_BASE_URL = "http://127.0.0.1:8010"
+Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
+</div>
+
+<div class="code wrap">
+  <div class="code-head">stdout, measured at ~1.0 s end to end<div class="spacer"></div></div>
+<pre><code>{"permissionDecision":"ask","permissionDecisionReason":"Laya did not clear the confidence threshold; require human approval."}</code></pre>
+</div>
+
+<p>Roughly one second, against a 2-second client cap, a 4-second internal deadline and an 8-second
+Copilot timeout. That margin is the whole reason a warm container is a prerequisite rather than a
+nicety. Now start a gated session:</p>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>$env:DECISION_MODE = "live"
+$env:DECISION_PROVIDER = "laya"
+$env:LAYA_BASE_URL = "http://127.0.0.1:8010"
+copilot</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>export DECISION_MODE=live DECISION_PROVIDER=laya LAYA_BASE_URL=http://127.0.0.1:8010
+copilot</code></pre>
+</div>
+
+<p>Use the same four prompts from step 7. Every decision is now made by a model running on your
+machine, and no tool argument leaves it.</p>
+
+<div class="callout warn">
+  <strong>Set the variables before <code>copilot</code> starts</strong>
+  <p>Repository hook configuration and the environment are read when the CLI starts. Changing
+  <code>DECISION_MODE</code>, <code>DECISION_PROVIDER</code>, or <code>LAYA_BASE_URL</code> inside a
+  running session has no effect at all.</p>
+</div>
+
+<h3>11.7 Stop it</h3>
+
+<div class="code">
+  <div class="code-head"><span class="os">Windows</span> PowerShell<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/laya-down.ps1</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head"><span class="os">macOS / Linux</span> bash<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>./scripts/laya-down.sh</code></pre>
+</div>
+
+<p>The checkpoints stay in the <code>model-cache</code> named volume, so the next start is seconds
+rather than minutes. Add <code>-RemoveVolumes</code> (or <code>--volumes</code> for the shell
+version) only if you actually want to download them again.</p>
+
+<h3>Optional: cut the container off from the network entirely</h3>
+
+<p>Once the cache volume is warm, an override file removes the container's network, so model code
+cannot phone home even in principle. Save it as
+<code>C:/laya-local/compose.offline.yml</code>:</p>
+
+<div class="code">
+  <div class="code-head">C:/laya-local/compose.offline.yml<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>services:
+  laya-serve:
+    network_mode: none
+    environment:
+      HF_HUB_OFFLINE: "1"</code></pre>
+</div>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>docker compose -f C:/laya-local/docker-compose.yml -f C:/laya-local/compose.offline.yml run --rm laya-serve python /opt/laya/examples/quickstart.py</code></pre>
+</div>
+
+<div class="callout warn">
+  <strong>The override suits <code>run</code>, not <code>up</code></strong>
+  <p><code>network_mode: none</code> removes the network, so the HTTP API is unreachable - there is
+  no network to reach it on. Compose also cannot un-declare <code>ports</code> from an override, so
+  the inherited mapping is still listed and simply ignored. Use this for the one-shot SDK path; use
+  the plain compose file when you want the server.</p>
+</div>
+
+<hr>
+
+<h2 id="step12"><span class="stepnum">12</span>Prove the provider switch changes nothing that matters</h2>
+
+<p>The claim this architecture makes is narrow and checkable: <em>selecting a different engine
+changes the numbers you display and not a single decision you enforce.</em> Run the three commands
+below in order and read the three columns.</p>
+
+<div class="code">
+  <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev  --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live</code></pre>
+</div>
+
+<table>
+<thead><tr><th></th><th>jev / mock</th><th>laya / mock</th><th>laya / live</th></tr></thead>
+<tbody>
+<tr><td><code>route</code> choice</td><td>ask</td><td>ask</td><td>allow</td></tr>
+<tr><td><code>answer=</code> (max p)</td><td>0.76</td><td><b>0.76</b></td><td>0.53</td></tr>
+<tr><td><code>confidence=</code></td><td>0.64</td><td><b>0.35</b></td><td>0.19</td></tr>
+<tr><td><code>risk</code> score</td><td>1.56</td><td><b>1.56</b></td><td>1.10</td></tr>
+<tr><td>Gate decision (level 5)</td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td></tr>
+<tr><td><code>model=</code></td><td>mock-jev</td><td>mock-laya</td><td>laya-rl-agent</td></tr>
+<tr><td><code>routing=</code></td><td>(none)</td><td>mock placeholder</td><td>english</td></tr>
+</tbody>
+</table>
+
+<p>Columns one and two differ in exactly one row: <code>confidence=</code>. Same distribution, same
+answer, same score, same decision, different number - because the two engines define that word
+differently. Column three is a real model and moves everything, and still lands on the same gate
+decision, because 0.53 is nowhere near the 0.85 allow bar.</p>
+
+<h3>The property is pinned by tests, not by memory</h3>
+
+<div class="code">
+  <div class="code-head">from the self-test run<div class="spacer"></div></div>
+<pre><code><span class="ok">PASS</span>  the gate thresholds on max(p), not on the provider's confidence field
+<span class="ok">PASS</span>  an undecided laya answer still escalates to a human
+<span class="ok">PASS</span>  <span class="hl">switching provider does not change a single gate decision in mock mode</span>
+<span class="ok">PASS</span>  the mock reproduces each provider's own confidence definition</code></pre>
+</div>
+
+<p>The third of those enumerates the gate's inputs under both providers and asserts the decisions are
+identical. The fourth is what makes the offline mock worth trusting: it reproduces each engine's own
+confidence formula over the same distribution, so the difference that would bite you in production is
+visible on a laptop with no network and in CI.</p>
+
+<h3>Where the difference is allowed to live</h3>
+
+<table>
+<thead><tr><th></th><th>Jev</th><th>Laya</th></tr></thead>
+<tbody>
+<tr><td>Endpoint</td><td><code>https://api.typesafe.ai/v1/systemone</code></td><td><code>http://127.0.0.1:8010/v1/systemone</code></td></tr>
+<tr><td>Credentials</td><td><code>TYPESAFE_API_KEY</code>, always required</td><td><code>LAYA_API_KEY</code>, only if the server was started with one</td></tr>
+<tr><td><code>model</code> field</td><td><code>jev-latest</code></td><td>omitted, so the router picks per request</td></tr>
+<tr><td>Response extras</td><td>-</td><td><code>answer_confidence</code>, <code>routing</code></td></tr>
+<tr><td>Where the state goes</td><td>a third-party service</td><td>a container on your machine</td></tr>
+<tr><td><code>confidence</code> means</td><td><code>(n&times;p_max - 1)/(n - 1)</code></td><td>normalized entropy <code>1 - H(p)/log(k)</code></td></tr>
+<tr><td>Function-tool names</td><td><code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code></td><td><code>laya_noul</code> / <code>laya_choice</code> / <code>laya_score</code></td></tr>
+</tbody>
+</table>
+
+<p>All of it is data in one record, <code>SystemOneEndpoint</code> in
+<a href="../src/Jev.Core/DecisionProviders.cs"><code>src/Jev.Core/DecisionProviders.cs</code></a>.
+<code>SystemOneHttpClient</code> is provider-agnostic, and <code>CopilotToolGate</code> contains no
+provider-specific code beyond the display name in its reason strings.</p>
+
+<div class="callout danger">
+  <strong><code>confidence</code> is not portable, and this is the number that would have bitten you</strong>
+  <p>For the probabilities <code>0.94 / 0.03 / 0.03</code>, Jev reports <code>0.9100</code> and Laya
+  <code>0.7555</code>. For <code>0.76 / 0.12 / 0.12</code>, Jev reports <code>0.6400</code> and Laya
+  <code>0.3471</code>. A 0.75 threshold tuned on Jev would reject a decisive Laya answer outright.
+  <code>CopilotToolGate</code> therefore never reads that field: it thresholds on
+  <code>AnswerConfidence</code>, the probability mass on the reported answer, which both engines
+  define identically. Laya sends it as <code>answer_confidence</code>; for Jev, which does not send
+  it, the client recovers the same number from the returned distribution.</p>
+  <p>Both numbers are kept and both are printed, because the provider's own value is still the right
+  thing to show a person. Only policy is forbidden from reading it.</p>
+</div>
+
+<div class="notes">
+  <div class="label">Presenter note</div>
+  <p>If you only have time for one slide about the provider work, make it this one, and frame it as a
+  bug that was <em>designed out</em> rather than a feature that was added. The tempting
+  implementation reads the field called <code>confidence</code>, because that is what it is called.
+  It would have passed every test on Jev, passed code review, and quietly gated differently the day
+  someone set <code>DECISION_PROVIDER=laya</code>.</p>
+  <p>What prevented it was not care, it was structure: one record holding every provider difference,
+  one client that reads it, policy code that is not allowed to know which provider it is on, and a
+  self-test that enumerates decisions under both. Any of the four alone would have been insufficient.</p>
+  <p>The second thing to say out loud is the adoption argument. Data residency is usually the reason
+  a client cannot adopt an agent policy hook at all: tool arguments contain source, paths, and
+  repository structure, and a hosted call publishes all of it. A local engine answers that objection
+  without changing one line of policy code. Be honest about the limits - the credential check still
+  runs first, because "local" is not "safe to log", and the shipped checkpoints are zero-shot.</p>
 </div>
 
 <hr>
@@ -1261,10 +2018,20 @@ copilot</code></pre>
 <table>
 <thead><tr><th>Variable</th><th>Default</th><th>Read by</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td><code>JEV_MODE</code></td><td><code>off</code></td><td>Hook adapter</td><td><code>off</code> / <code>mock</code> / <code>live</code> / <code>auto</code></td></tr>
-<tr><td><code>TYPESAFE_API_KEY</code></td><td>(none)</td><td>Both</td><td>Bearer token for the Jev API. Required for <code>live</code>.</td></tr>
+<tr><td><code>DECISION_PROVIDER</code></td><td>(inferred)</td><td>Both</td><td><code>jev</code> / <code>laya</code>. Unset: <code>laya</code> when <code>LAYA_BASE_URL</code> is set, else <code>jev</code>.</td></tr>
+<tr><td><code>DECISION_MODE</code></td><td><code>off</code></td><td>Hook adapter</td><td><code>off</code> / <code>mock</code> / <code>live</code> / <code>auto</code>. Falls back to <code>JEV_MODE</code>.</td></tr>
+<tr><td><code>DECISION_HOOK_DEADLINE_MS</code></td><td><code>4000</code></td><td>Hook adapter</td><td>Internal deadline. Must stay below <code>timeoutSec</code>. Falls back to <code>JEV_HOOK_DEADLINE_MS</code>.</td></tr>
+<tr><td><code>TYPESAFE_API_KEY</code></td><td>(none)</td><td>Both</td><td>Bearer token for the Jev API. Required for <code>live</code> on Jev.</td></tr>
 <tr><td><code>JEV_MODEL</code></td><td><code>jev-latest</code></td><td>HTTP client</td><td>Model name sent in the request body</td></tr>
-<tr><td><code>JEV_HOOK_DEADLINE_MS</code></td><td><code>4000</code></td><td>Hook adapter</td><td>Internal deadline. Must stay below <code>timeoutSec</code>.</td></tr>
+<tr><td><code>JEV_BASE_URL</code></td><td><code>https://api.typesafe.ai/</code></td><td>HTTP client</td><td>Override the Jev endpoint (a proxy or gateway)</td></tr>
+<tr><td><code>LAYA_BASE_URL</code></td><td><code>http://127.0.0.1:8010/</code></td><td>HTTP client</td><td>Where <code>laya-serve</code> listens. Setting it also selects the provider.</td></tr>
+<tr><td><code>LAYA_API_KEY</code></td><td>(none)</td><td>HTTP client</td><td>Only when the server was started with one; otherwise no header is sent</td></tr>
+<tr><td><code>LAYA_MODEL</code></td><td>(none)</td><td>HTTP client</td><td><code>english</code> / <code>multilingual</code> / <code>typed-decisions</code>. Unset lets the router pick.</td></tr>
+<tr><td><code>LAYA_HOME</code></td><td><code>C:/laya-local</code></td><td><code>laya-up</code> / <code>laya-down</code></td><td>Directory holding <code>docker-compose.yml</code> and the <code>laya/</code> checkout</td></tr>
+<tr><td><code>LAYA_HOST_PORT</code></td><td><code>8010</code></td><td><code>laya-up</code>, compose</td><td>Host port <code>laya-serve</code> publishes on. Not 8000, because <code>http.sys</code> reserves it on Windows.</td></tr>
+<tr><td><code>LAYA_BIND_ADDRESS</code></td><td><code>127.0.0.1</code></td><td><code>laya-up</code>, compose</td><td>Interface the port is published on. Loopback, because the API is unauthenticated by default.</td></tr>
+<tr><td><code>LAYA_MODELS</code></td><td>(server default)</td><td>compose</td><td>Which checkpoints the container preloads. Empty keeps all three.</td></tr>
+<tr><td><code>LAYA_CPUS</code> / <code>LAYA_MEMORY</code></td><td><code>4</code> / <code>6g</code></td><td>compose</td><td>Container resource limits</td></tr>
 <tr><td><code>COPILOT_CLI_PATH</code></td><td>(none)</td><td>Levels 6, 7, 10</td><td>Path to a Copilot binary when not using the SDK-downloaded one</td></tr>
 <tr><td><code>COPILOT_HOME</code></td><td><code>~/.copilot</code></td><td>Copilot CLI</td><td>Where Copilot keeps session state and config</td></tr>
 </tbody>
@@ -1278,8 +2045,11 @@ copilot</code></pre>
   --level &lt;n&gt;             Run one level (default: 1).
   --all                   Run every level that does not need a Copilot runtime.
   --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
-  --jev &lt;mock|live&gt;       Decision provider (default: mock).
-                          'live' requires TYPESAFE_API_KEY.</code></pre>
+  --provider &lt;jev|laya&gt;   Decision engine (default: DECISION_PROVIDER, else laya when
+                          LAYA_BASE_URL is set, else jev).
+  --mode &lt;mock|live&gt;      How to reach it (default: mock). '--jev' is accepted as an alias.
+                          'live' needs TYPESAFE_API_KEY for jev, or a running laya-serve
+                          for laya (see docs/LAYA.md).</code></pre>
 </div>
 
 <p>Exit codes: <code>0</code> success, <code>1</code> a Copilot-backed level failed, <code>2</code> bad
@@ -1290,18 +2060,23 @@ arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ct
 <table>
 <thead><tr><th>Path</th><th>Role</th></tr></thead>
 <tbody>
-<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs mirroring the TypeSafe OpenAPI schemas</td></tr>
+<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs for the <code>/v1/systemone</code> contract both providers speak</td></tr>
 <tr><td><code>src/Jev.Core/IJevClient.cs</code></td><td>The one-method interface both providers implement</td></tr>
-<tr><td><code>src/Jev.Core/JevHttpClient.cs</code></td><td>Live client. Small on purpose so the wire contract is inspectable.</td></tr>
+<tr><td><code>src/Jev.Core/DecisionProviders.cs</code></td><td>Provider selection. Every Jev/Laya difference lives here and nowhere else.</td></tr>
+<tr><td><code>src/Jev.Core/SystemOneHttpClient.cs</code></td><td>Live client for both providers. Small on purpose so the wire contract is inspectable.</td></tr>
 <tr><td><code>src/Jev.Core/MockJevClient.cs</code></td><td>Deterministic offline simulator driven by risk bands</td></tr>
 <tr><td><code>src/Jev.Core/RiskHeuristics.cs</code></td><td>Anchored regexes: hard deny, credential shapes, demo risk bands</td></tr>
 <tr><td><code>src/Jev.Core/CopilotToolGate.cs</code></td><td>The layered policy engine. Shared by levels 5, 8, 9, and the hook.</td></tr>
 <tr><td><code>src/Jev.CopilotHook/Program.cs</code></td><td>stdin/stdout <code>preToolUse</code> adapter with its own deadline</td></tr>
 <tr><td><code>src/TenLevels.Jev/Levels/</code></td><td>The ten level demos, one file each</td></tr>
-<tr><td><code>src/TenLevels.Jev/Copilot/</code></td><td>Agent Framework runner and the Jev function-tool set</td></tr>
+<tr><td><code>src/TenLevels.Jev/Copilot/</code></td><td>Agent Framework runner and the decision function-tool set</td></tr>
+<tr><td><code>src/TenLevels.Jev/Copilot/DecisionToolSet.cs</code></td><td>The three primitives as Agent Framework function tools, named after the selected provider</td></tr>
+<tr><td><code>scripts/laya-up.ps1</code> / <code>.sh</code></td><td>Starts the local Laya container and waits for <code>/health</code></td></tr>
+<tr><td><code>scripts/laya-down.ps1</code> / <code>.sh</code></td><td>Stops it, keeping the model-cache volume unless you ask otherwise</td></tr>
+<tr><td><code>docs/LAYA.md</code></td><td>The provider reference: endpoints, limits, routing, offline mode, accuracy</td></tr>
 <tr><td><code>scripts/jev-hook.ps1</code> / <code>.sh</code></td><td>Thin wrappers. Always exit 0, always print one decision.</td></tr>
 <tr><td><code>scripts/test-hook.ps1</code> / <code>.sh</code></td><td>Replays every sample and asserts its expected decision</td></tr>
-<tr><td><code>samples/hooks/*.json</code></td><td>Nine payloads, each with its expected decision and a note</td></tr>
+<tr><td><code>samples/hooks/*.json</code></td><td>Ten payloads, each with its expected decision and a note</td></tr>
 <tr><td><code>.github/hooks/jev-policy.json</code></td><td>The native Copilot CLI hook registration</td></tr>
 <tr><td><code>tests/Jev.Core.SelfTests/</code></td><td>Dependency-free smoke tests, both directions per rule</td></tr>
 </tbody>
@@ -1313,26 +2088,32 @@ arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ct
 the state into a band, and <code>MockJevClient</code> maps the band to fixed values.</p>
 
 <table>
-<thead><tr><th>Band</th><th>Triggered by</th><th>Noul</th><th>Choice</th><th>Confidence</th><th>Normalized score</th></tr></thead>
+<thead><tr><th>Band</th><th>Triggered by</th><th>Noul</th><th>Choice</th><th><code>answer</code> (max p)</th><th><code>confidence</code> on jev / laya</th><th>Normalized score</th></tr></thead>
 <tbody>
-<tr><td><b>Low</b></td><td>Nothing matched</td><td>0.03</td><td><span class="pill allow">allow</span></td><td>0.94</td><td>0.05</td></tr>
-<tr><td><b>Medium</b></td><td>install, deploy, git commit/push, edit, package, snapshot</td><td>0.58</td><td><span class="pill ask">ask</span></td><td>0.76</td><td>0.52</td></tr>
-<tr><td><b>High</b></td><td>Hard-deny match, credential match, auth/crypto, system paths, prod + destructive verb, drop table</td><td>0.94</td><td><span class="pill deny">deny</span></td><td>0.94</td><td>0.95</td></tr>
+<tr><td><b>Low</b></td><td>Nothing matched</td><td>0.03</td><td><span class="pill allow">allow</span></td><td>0.94</td><td>0.91 / 0.76</td><td>0.05</td></tr>
+<tr><td><b>Medium</b></td><td>install, deploy, git commit/push, edit, package, snapshot</td><td>0.58</td><td><span class="pill ask">ask</span></td><td>0.76</td><td>0.64 / 0.35</td><td>0.52</td></tr>
+<tr><td><b>High</b></td><td>Hard-deny match, credential match, auth/crypto, system paths, prod + destructive verb, drop table</td><td>0.94</td><td><span class="pill deny">deny</span></td><td>0.94</td><td>0.91 / 0.76</td><td>0.95</td></tr>
 </tbody>
 </table>
 
 <p>Score output is <code>normalized &times; (levels - 1)</code>. With a four-level rubric, Medium gives
-<code>0.52 &times; 3 = 1.56</code>, which is exactly what levels 3 and 4 print.</p>
+<code>0.52 &times; 3 = 1.56</code>, which is exactly what levels 3 and 4 print. A Score answer always puts
+0.88 on the nearest level, so its <code>answer</code> confidence is 0.88 and its reported
+<code>confidence</code> is 0.84 on jev and 0.64 on laya for a four-level rubric.</p>
+
+<p>The <code>confidence</code> column is provider-specific on purpose: the mock reproduces each engine's
+own formula over the same distribution, so the difference that matters in production is visible offline
+and in CI. Policy never reads it.</p>
 
 <div class="notes">
   <div class="label">Presenter note</div>
   <p>Keep this table open on a second screen during a live demo. It lets you answer "why did it say 0.76?"
   instantly and with confidence, which is the difference between a demo that looks engineered and one that
   looks lucky.</p>
-  <p>It also makes the mock <em>pedagogically</em> useful rather than merely convenient. Because the
-  Medium band's confidence of 0.76 sits deliberately below the gate's allow threshold of 0.75 on
-  probability and 0.85 on allow-mass, you can demonstrate the threshold arithmetic live and it will land
-  the same way every time.</p>
+  <p>It also makes the mock <em>pedagogically</em> useful rather than merely convenient. The Medium
+  band puts 0.76 on <code>ask</code>, which leaves only 0.12 on <code>allow</code> - far below the gate's
+  0.85 allow-mass threshold - so you can demonstrate the threshold arithmetic live and it lands the same
+  way every time, on either provider.</p>
 </div>
 
 <h2 id="troubleshoot">Troubleshooting</h2>
@@ -1356,24 +2137,54 @@ the state into a band, and <code>MockJevClient</code> maps the band to fixed val
   <td>Keep <code>-ExecutionPolicy Bypass -File</code> in the hook entry. Test the wrapper standalone by piping a sample into it.</td>
 </tr>
 <tr>
-  <td>Every tool call returns <span class="pill ask">ask</span> with "Jev hook is not built"</td>
+  <td>Every tool call returns <span class="pill ask">ask</span> with "The policy hook is not built"</td>
   <td>The compiled hook DLL is missing</td>
   <td>Run <code>./scripts/bootstrap.ps1</code> (or <code>.sh</code>)</td>
 </tr>
 <tr>
   <td>Hook always answers "did not reach a decision in time"</td>
-  <td>The internal deadline expired, usually a slow live Jev call</td>
-  <td>Raise <code>JEV_HOOK_DEADLINE_MS</code>, and raise <code>timeoutSec</code> above it, or switch to <code>mock</code></td>
+  <td>The internal deadline expired, usually a slow live call. A cold Laya container is the most common cause: its first request loads a checkpoint.</td>
+  <td>Wait for <code>/health</code> (that is what <code>laya-up</code> does), or raise <code>DECISION_HOOK_DEADLINE_MS</code> and <code>timeoutSec</code> above it, or switch to <code>mock</code></td>
 </tr>
 <tr>
-  <td>Changing <code>JEV_MODE</code> has no effect</td>
+  <td>Changing <code>DECISION_MODE</code> has no effect</td>
   <td>Hook config and environment are read at CLI start</td>
   <td>Exit Copilot, set the variable, start it again</td>
 </tr>
 <tr>
   <td><code>TYPESAFE_API_KEY is not set</code>, exit code 2</td>
-  <td><code>--jev live</code> without a key</td>
-  <td>Set the key or use <code>--jev mock</code></td>
+  <td><code>--provider jev --mode live</code> without a key</td>
+  <td>Set the key, use <code>--mode mock</code>, or switch to <code>--provider laya</code></td>
+</tr>
+<tr>
+  <td><code>laya-up</code> throws "No docker-compose.yml under 'C:/laya-local'"</td>
+  <td>The compose project has not been created, or lives somewhere else</td>
+  <td>Follow step 11.1 and 11.2, or set <code>LAYA_HOME</code> / pass <code>-LayaHome</code></td>
+</tr>
+<tr>
+  <td>The image build fails compiling PyTorch, or runs out of disk</td>
+  <td>The CPU torch wheel is large and the build needs several GB of scratch space</td>
+  <td><code>docker system prune</code>, raise Docker Desktop's disk allocation, then rerun <code>laya-up</code>; the build resumes from cached layers</td>
+</tr>
+<tr>
+  <td><code>laya-up</code> prints dots for twenty minutes then throws</td>
+  <td>First boot is still downloading checkpoints, or the container died during preload</td>
+  <td><code>docker compose --file C:/laya-local/docker-compose.yml logs --tail 50</code>. An OOM kill during preload means raising <code>LAYA_MEMORY</code>.</td>
+</tr>
+<tr>
+  <td>Level 4 under <code>--provider laya --mode live</code> answers instantly with an HTTP error</td>
+  <td><code>laya-serve</code> refuses a state over 50,000 characters, more than 64 questions, or a body over 2 MiB with <code>413</code>, and returns <code>503</code> when <code>LAYA_MAX_CONCURRENT</code> requests are in flight</td>
+  <td>The client surfaces the status and body rather than inventing an answer; the gate turns any such failure into <span class="pill ask">ask</span>. Shrink the state or lower concurrency.</td>
+</tr>
+<tr>
+  <td><code>Connection refused</code> against <code>127.0.0.1:8010</code></td>
+  <td><code>laya-serve</code> is not running, or it published a different host port</td>
+  <td>Run <code>./scripts/laya-up.ps1</code>; check <code>LAYA_HOST_PORT</code> and that the port is not in an excluded range (<code>netsh int ipv4 show excludedportrange protocol=tcp</code>)</td>
+</tr>
+<tr>
+  <td>Laya answers <code>401</code></td>
+  <td>The server was started with <code>LAYA_API_KEY</code> but the client has none</td>
+  <td>Set <code>LAYA_API_KEY</code> to the same value, or start the container without one</td>
 </tr>
 <tr>
   <td>Level 6, 7, or 10 fails with "needs a working, authenticated GitHub Copilot runtime"</td>
@@ -1381,9 +2192,9 @@ the state into a band, and <code>MockJevClient</code> maps the band to fixed val
   <td>Authenticate the CLI, or set <code>COPILOT_CLI_PATH</code> to an installed binary</td>
 </tr>
 <tr>
-  <td>The agent's own <code>jev_*</code> calls get denied</td>
+  <td>The agent's own <code>jev_*</code> or <code>laya_*</code> calls get denied</td>
   <td>The exemption list in <code>CopilotToolGate</code> was removed or renamed</td>
-  <td>Restore <code>jev_noul</code>, <code>jev_choice</code>, <code>jev_score</code> in <code>JevDecisionTools</code></td>
+  <td>Restore all six names in <code>DecisionTools</code>; the tool prefix follows the selected provider</td>
 </tr>
 </tbody>
 </table>
@@ -1430,17 +2241,24 @@ work through this list:</p>
     boundary, particularly for the fail-open timeout path.</p>
   </div>
   <div class="card">
+    <h4>Accuracy</h4>
+    <p>Fine-tune on your own decisions. The shipped Laya checkpoints are zero-shot, and upstream
+    reports 0.362 for the base English checkpoint against 0.766 for <code>typed-decisions</code> on
+    its own benchmark. Re-validate every threshold on your own traffic.</p>
+  </div>
+  <div class="card">
     <h4>Test corpus</h4>
-    <p>Derive policy tests from real tool traces, not from imagination. The nine samples here are a
+    <p>Derive policy tests from real tool traces, not from imagination. The ten samples here are a
     starting shape, not a sufficient corpus.</p>
   </div>
 </div>
 
 <div class="callout danger">
   <strong>The question to answer first</strong>
-  <p>Decide whether a remote Jev call is permitted at all for the data being evaluated. Tool arguments
+  <p>Decide whether a remote model call is permitted at all for the data being evaluated. Tool arguments
   routinely contain source code, file paths, and repository structure. For some organizations the correct
-  deployment is <code>JEV_MODE=off</code> with the deterministic layers only.</p>
+  deployment is <code>DECISION_MODE=off</code> with the deterministic layers only; for others it is a
+  self-hosted Laya container, where the state never leaves the machine.</p>
 </div>
 
 <div class="notes">
@@ -1458,7 +2276,9 @@ work through this list:</p>
     <li><b>Two-sided tests</b>: every rule has a command that must match and a benign command that must
     not, so loosening a rule is visible in a diff.</li>
   </ol>
-  <p>Those four hold regardless of whether you use Jev, a different model, or no model at all.</p>
+  <p>Those four hold regardless of whether you use Jev, Laya, a different model, or no model at all.
+  The provider switch in this repo is itself an instance of the second one: the difference between the
+  two engines is data in <code>SystemOneEndpoint</code>, not a branch in policy code.</p>
 </div>
 
 <h2 id="script">The 15-minute demo script</h2>
@@ -1468,12 +2288,12 @@ work through this list:</p>
 <tbody>
 <tr>
   <td><b>0:00</b></td>
-  <td><code>--level 1 --jev mock</code> then levels 2, 3, 4</td>
+  <td><code>--level 1 --mode mock</code> then levels 2, 3, 4</td>
   <td>Introduce Noul, Choice, Score. The threshold is a C# literal, not a prompt.</td>
 </tr>
 <tr>
   <td><b>3:00</b></td>
-  <td><code>--level 5 --jev mock</code></td>
+  <td><code>--level 5 --mode mock</code></td>
   <td>Three inputs, three decisions, three different layers. Walk the 0.12 / 0.76 / 0.12 arithmetic out loud.</td>
 </tr>
 <tr>
@@ -1484,17 +2304,17 @@ work through this list:</p>
 <tr>
   <td><b>7:00</b></td>
   <td><code>./scripts/test-hook.ps1</code></td>
-  <td>Nine payloads, each asserting a decision. Four are regressions from real mistakes.</td>
+  <td>Ten payloads, each asserting a decision. Four are regressions from real mistakes.</td>
 </tr>
 <tr>
   <td><b>9:00</b></td>
-  <td><code>$env:JEV_MODE="mock"; copilot</code>. Read a file, edit a file, propose a force push.</td>
+  <td><code>$env:DECISION_MODE="mock"; copilot</code>. Read a file, edit a file, propose a force push.</td>
   <td>Allow, ask, deny in a live session. The deny came back with no model call.</td>
 </tr>
 <tr>
   <td><b>12:00</b></td>
   <td><code>--level 7</code> with an authenticated runtime</td>
-  <td>Same Jev, different integration shape: function tools instead of a gate.</td>
+  <td>Same engine, different integration shape: function tools instead of a gate.</td>
 </tr>
 <tr>
   <td><b>13:30</b></td>
@@ -1502,9 +2322,14 @@ work through this list:</p>
   <td>The agent decides whether a bounded judgment is even the right primitive.</td>
 </tr>
 <tr>
+  <td><b>14:00</b></td>
+  <td><code>--level 4</code> three times: <code>jev/mock</code>, <code>laya/mock</code>, <code>laya/live</code> against the warm container</td>
+  <td>Same code, open-source engine, nothing leaves the machine. Identical decision; only <code>confidence=</code> moves, which is the bug we designed out.</td>
+</tr>
+<tr>
   <td><b>15:00</b></td>
   <td>Close</td>
-  <td>Jev advises; code authorizes. Ask is the default, never allow.</td>
+  <td>The model advises; code authorizes. Ask is the default, never allow.</td>
 </tr>
 </tbody>
 </table>
@@ -1528,6 +2353,7 @@ work through this list:</p>
   <a href="../README.md">README.md</a> &middot;
   <a href="LEVELS.md">docs/LEVELS.md</a> &middot;
   <a href="ARCHITECTURE.md">docs/ARCHITECTURE.md</a> &middot;
+  <a href="LAYA.md">docs/LAYA.md</a> &middot;
   <a href="SECURITY.md">docs/SECURITY.md</a> &middot;
   <a href="SOURCES.md">docs/SOURCES.md</a></p>
 </div>

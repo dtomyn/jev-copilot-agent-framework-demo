@@ -8,12 +8,12 @@ $root = Split-Path -Parent $PSScriptRoot
 $dll = Join-Path $root "src/Jev.CopilotHook/bin/Release/$tfm/Jev.CopilotHook.dll"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    Write-Output '{"permissionDecision":"ask","permissionDecisionReason":"Jev hook requires the .NET 10 runtime; require human approval."}'
+    Write-Output '{"permissionDecision":"ask","permissionDecisionReason":"The policy hook requires the .NET 10 runtime; require human approval."}'
     exit 0
 }
 
 if (-not (Test-Path $dll)) {
-    Write-Output '{"permissionDecision":"ask","permissionDecisionReason":"Jev hook is not built. Run ./scripts/bootstrap.ps1; require human approval until then."}'
+    Write-Output '{"permissionDecision":"ask","permissionDecisionReason":"The policy hook is not built. Run ./scripts/bootstrap.ps1; require human approval until then."}'
     exit 0
 }
 

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Jev.Core/Jev.Core.csproj" />
+
+    <!-- Level 8 runs the hook as a real child process, exactly the way Copilot CLI runs it:
+         payload on stdin, one JSON object and an exit code out. The reference exists so the
+         hook's executable is built and copied next to this one; the panel never calls into it
+         as a library, because that would demonstrate something other than the process contract
+         the hook actually has to satisfy. -->
+    <ProjectReference Include="../Jev.CopilotHook/Jev.CopilotHook.csproj" />
+  </ItemGroup>
+</Project>

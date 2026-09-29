@@ -23,7 +23,12 @@ jobs:
         run: dotnet run --project tests/Jev.Core.SelfTests/Jev.Core.SelfTests.csproj -c Release --no-build
 
       - name: Levels that need no Copilot runtime
-        run: dotnet run --project src/TenLevels.Jev -c Release --no-build -- --all
+        run: dotnet run --project src/TenLevels.Jev -c Release --no-build -- --all --provider jev
+
+      # Same levels, other provider. The mock keeps this offline; what it proves is that the
+      # provider switch changes no level's behaviour, only the reported confidence definition.
+      - name: Levels on the Laya provider
+        run: dotnet run --project src/TenLevels.Jev -c Release --no-build -- --all --provider laya
 
       - name: Hook adapter (bash wrapper)
         if: runner.os != 'Windows'

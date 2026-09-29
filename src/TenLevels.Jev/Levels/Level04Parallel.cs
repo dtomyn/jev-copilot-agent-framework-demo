@@ -36,5 +36,12 @@ public sealed class Level04Parallel : ILevelDemo
             LevelOutput.Answer(name, answer);
         }
         Console.WriteLine($"model={response.Model}, input_tokens={response.Usage.InputTokens}");
+
+        // Laya routes each request to one of three checkpoints and says which and why. Jev has no
+        // equivalent field, so this line simply does not appear there.
+        if (response.Routing is { } routing)
+        {
+            Console.WriteLine($"routing={routing}");
+        }
     }
 }

@@ -1,1 +1,1 @@
-{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"bash","toolArgs":{"command":"git push --force-with-lease origin feature/x"},"expectedDecision":"ask","note":"The safe force-push variant is deliberately not a hard deny; it falls through to Jev and human approval."}
+{"sessionId":"demo","timestamp":0,"cwd":".","toolName":"bash","toolArgs":{"command":"git push --force-with-lease origin feature/x"},"expectedDecision":"ask","note":"The safe force-push variant is deliberately not a hard deny; it falls through to the model and human approval."}

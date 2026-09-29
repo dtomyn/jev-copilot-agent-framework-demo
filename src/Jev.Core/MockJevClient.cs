@@ -1,7 +1,22 @@
 namespace Jev.Core;
 
+/// <summary>
+/// Deterministic offline stand-in for a System-One provider, so every level and every hook sample
+/// produces stable, explainable output with no network and no API key.
+///
+/// It also reproduces the one place where the two providers genuinely disagree: the meaning of
+/// <c>confidence</c>. The probabilities are identical for both, but the reported
+/// <see cref="ChoiceAnswer.Confidence"/> follows whichever formula the selected provider uses. The
+/// gate is unaffected because it reads <c>AnswerConfidence</c>, and a self-test pins that.
+/// </summary>
 public sealed class MockJevClient : IJevClient
 {
+    public MockJevClient(DecisionProvider provider = DecisionProvider.Jev) => Provider = provider;
+
+    public DecisionProvider Provider { get; }
+
+    public string Description => $"{(Provider == DecisionProvider.Laya ? "Laya" : "Jev")} mock (offline, deterministic)";
+
     public Task<SystemOneResponse> DecideAsync(
         object state,
         IReadOnlyDictionary<string, JevQuestion> questions,
@@ -23,9 +38,10 @@ public sealed class MockJevClient : IJevClient
         }
 
         return Task.FromResult(new SystemOneResponse(
-            "mock-jev",
+            Provider == DecisionProvider.Laya ? "mock-laya" : "mock-jev",
             answers,
-            new JevUsage(Math.Max(1, text.Length / 4), questions.Count * 4)));
+            new JevUsage(Math.Max(1, text.Length / 4), questions.Count * 4),
+            Provider == DecisionProvider.Laya ? "mock (no checkpoint loaded)" : null));
     }
 
     private static NoulAnswer BuildNoul(RiskBand risk) => risk switch
@@ -36,7 +52,7 @@ public sealed class MockJevClient : IJevClient
         _ => new NoulAnswer(0.5),
     };
 
-    private static ChoiceAnswer BuildChoice(ChoiceQuestion question, RiskBand risk, string text)
+    private ChoiceAnswer BuildChoice(ChoiceQuestion question, RiskBand risk, string text)
     {
         string[] keys = question.Criteria.Keys.ToArray();
         if (keys.Length == 0)
@@ -55,15 +71,25 @@ public sealed class MockJevClient : IJevClient
                 RiskBand.High => Find(keys, "deny"),
                 _ => Find(keys, "ask"),
             };
-            double confidence = risk == RiskBand.Medium ? 0.76 : 0.94;
-            return new ChoiceAnswer(chosen, confidence, Distribution(keys, chosen, confidence));
+            double selected = risk == RiskBand.Medium ? 0.76 : 0.94;
+            return BuildChoiceAnswer(keys, chosen, selected);
         }
 
         string matched = keys.FirstOrDefault(k => text.Contains(k, StringComparison.OrdinalIgnoreCase)) ?? keys[0];
-        return new ChoiceAnswer(matched, 0.88, Distribution(keys, matched, 0.88));
+        return BuildChoiceAnswer(keys, matched, 0.88);
     }
 
-    private static ScoreAnswer BuildScore(ScoreQuestion question, RiskBand risk)
+    private ChoiceAnswer BuildChoiceAnswer(string[] keys, string chosen, double selected)
+    {
+        Dictionary<string, double> probabilities = Distribution(keys, chosen, selected);
+        return new ChoiceAnswer(
+            chosen,
+            ProviderConfidence(probabilities.Values),
+            selected,
+            probabilities);
+    }
+
+    private ScoreAnswer BuildScore(ScoreQuestion question, RiskBand risk)
     {
         if (question.Criteria.Count == 0)
         {
@@ -84,17 +110,41 @@ public sealed class MockJevClient : IJevClient
         var legend = question.Criteria
             .Select((value, index) => new KeyValuePair<string, string>(index.ToString(), value))
             .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+        const double Selected = 0.88;
         var probabilities = question.Criteria
             .Select((_, index) => new KeyValuePair<string, double>(
                 index.ToString(),
-                index == nearest ? 0.88 : 0.12 / Math.Max(1, question.Criteria.Count - 1)))
+                index == nearest ? Selected : (1 - Selected) / Math.Max(1, question.Criteria.Count - 1)))
             .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
 
         return new ScoreAnswer(
             Math.Round(score, 2),
-            risk == RiskBand.Medium ? 0.73 : 0.91,
+            ProviderConfidence(probabilities.Values),
+            Selected,
             legend,
             probabilities);
+    }
+
+    /// <summary>
+    /// Reproduces each provider's own <c>confidence</c> definition: Jev's
+    /// <c>(n*p_max - 1)/(n - 1)</c>, Laya's normalized entropy <c>1 - H(p)/log(k)</c>. Two numbers
+    /// for the same distribution, which is exactly why policy must not threshold on this one.
+    /// </summary>
+    private double ProviderConfidence(IEnumerable<double> probabilities)
+    {
+        double[] p = probabilities.ToArray();
+        if (p.Length < 2)
+        {
+            return 1.0;
+        }
+
+        if (Provider == DecisionProvider.Laya)
+        {
+            double entropy = p.Where(v => v > 0).Sum(v => -v * Math.Log(v));
+            return Math.Round(1 - (entropy / Math.Log(p.Length)), 4);
+        }
+
+        return Math.Round(((p.Length * p.Max()) - 1) / (p.Length - 1), 4);
     }
 
     private static Dictionary<string, double> Distribution(string[] keys, string chosen, double selected)

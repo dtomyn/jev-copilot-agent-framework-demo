@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "webui",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/Jev.WebUi", "--no-build"],
+      "port": 5088,
+      "url": "http://127.0.0.1:5088"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -28,17 +29,17 @@ await Check("force push hard denies", async () =>
     StartsWith("Deterministic policy", result.Reason);
 });
 
-await Check("semantic high risk is still Jev-governed, not hard-denied", async () =>
+await Check("semantic high risk is still model-governed, not hard-denied", async () =>
 {
     GateResult result = await Gate().EvaluateAsync("edit", """{"change":"update authentication middleware"}""");
     Equal(GateDecision.Deny, result.Decision);
     if (result.Reason.StartsWith("Deterministic policy", StringComparison.Ordinal))
     {
-        throw new InvalidOperationException("Expected Jev classification rather than deterministic hard deny.");
+        throw new InvalidOperationException("Expected a model classification rather than a deterministic hard deny.");
     }
 });
 
-await Check("sensitive read asks without Jev", async () =>
+await Check("sensitive read asks without a model call", async () =>
 {
     GateResult result = await Gate().EvaluateAsync("view", """{"path":".env"}""");
     Equal(GateDecision.Ask, result.Decision);
@@ -50,17 +51,23 @@ await Check("off mode asks on mutation", async () =>
     Equal(GateDecision.Ask, result.Decision);
 });
 
-await Check("host-registered Jev tools are not treated as mutations", async () =>
+await Check("host-registered decision tools are not treated as mutations", async () =>
 {
-    // The repository hook sees every tool the Agent Framework agent calls, including the Jev
-    // functions the host itself registered. Denying those breaks levels 6, 7, and 10.
-    GateResult result = await Gate().EvaluateAsync(
-        "jev_noul",
-        """{"state":"A PR changes authentication middleware.","question":"Security review?"}""");
-    Equal(GateDecision.Allow, result.Decision);
+    // The repository hook sees every tool the Agent Framework agent calls, including the decision
+    // functions the host itself registered. Denying those breaks levels 6, 7, and 10. Both
+    // provider prefixes must be allowed, because DecisionToolSet names its tools after the
+    // provider the agent process was started with.
+    string[] tools = ["jev_noul", "jev_choice", "jev_score", "laya_noul", "laya_choice", "laya_score"];
+    foreach (string tool in tools)
+    {
+        GateResult result = await Gate().EvaluateAsync(
+            tool,
+            """{"state":"A PR changes authentication middleware.","question":"Security review?"}""");
+        Equal(GateDecision.Allow, result.Decision);
+    }
 });
 
-await Check("a Jev tool call carrying credentials still escalates", async () =>
+await Check("a decision tool call carrying credentials still escalates", async () =>
 {
     GateResult result = await Gate().EvaluateAsync(
         "jev_choice",
@@ -73,6 +80,48 @@ await Check("a denied pattern beats the read-only fast path", async () =>
     // The tool name says read-only, the arguments say otherwise. Deny must win.
     GateResult result = await Gate().EvaluateAsync("view", """{"path":"$(rm -rf /)"}""");
     Equal(GateDecision.Deny, result.Decision);
+    Equal(GateStage.HardDeny, result.Stage);
+});
+
+await Check("the gate reports which layer decided", async () =>
+{
+    // The order of the layers is the policy, so anything that explains a decision is told the
+    // layer rather than inferring one from the reason string.
+    (string Tool, string Args, GateStage Stage)[] cases =
+    [
+        ("bash", """{"command":"git push --force origin main"}""", GateStage.HardDeny),
+        ("view", """{"path":".env"}""", GateStage.Sensitive),
+        ("view", """{"path":"README.md"}""", GateStage.ReadOnlyTool),
+        ("laya_noul", """{"state":"A PR changes token refresh."}""", GateStage.DecisionTool),
+        ("edit", """{"path":"src/App.cs"}""", GateStage.Model),
+    ];
+
+    foreach ((string tool, string arguments, GateStage stage) in cases)
+    {
+        GateResult result = await Gate().EvaluateAsync(tool, arguments);
+        Equal(stage, result.Stage);
+    }
+
+    Equal(GateStage.NoProvider, (await new CopilotToolGate(null).EvaluateAsync("edit", "{}")).Stage);
+});
+
+await Check("only the model layer reports the distribution it thresholded", async () =>
+{
+    GateResult model = await Gate().EvaluateAsync("edit", """{"path":"src/App.cs"}""");
+    if (model.Probabilities is null)
+    {
+        throw new InvalidOperationException("The model layer must report the probabilities it applied thresholds to.");
+    }
+
+    Equal(model.Confidence ?? 0, model.Probabilities.Values.Max());
+
+    // The deterministic layers never call a provider, so there is no distribution to report and
+    // an empty-but-present one would read as a model answer of zero everywhere.
+    GateResult deterministic = await Gate().EvaluateAsync("view", """{"path":"README.md"}""");
+    if (deterministic.Probabilities is not null)
+    {
+        throw new InvalidOperationException("A deterministic layer must not fabricate a distribution.");
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -186,10 +235,10 @@ await Check("ordinary source paths are not treated as credentials", () =>
 });
 
 // ---------------------------------------------------------------------------
-// Wire contract with the TypeSafe Jev API (POST /v1/systemone).
+// Wire contract for POST /v1/systemone, which TypeSafe Jev and laya-serve both speak.
 // ---------------------------------------------------------------------------
 
-await Check("question serialization emits the Jev type discriminator", () =>
+await Check("question serialization emits the System-One type discriminator", () =>
 {
     var questions = new Dictionary<string, JevQuestion>
     {
@@ -254,7 +303,7 @@ await Check("http client posts the documented request and parses all three answe
 
     var handler = new RecordingHandler(responseBody);
     using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.typesafe.ai/") };
-    var client = new JevHttpClient(http, "test-key", "jev-latest");
+    var client = new SystemOneHttpClient(http, JevEndpoint("test-key", "jev-latest"));
 
     SystemOneResponse response = await client.DecideAsync("some state", new Dictionary<string, JevQuestion>
     {
@@ -279,6 +328,11 @@ await Check("http client posts the documented request and parses all three answe
     Equal("ask", ((ChoiceAnswer)response.Answers["b"]).Choice);
     Equal(1.7, ((ScoreAnswer)response.Answers["c"]).Score);
     Equal("high", ((ScoreAnswer)response.Answers["c"]).Legend["2"]);
+
+    // Jev sends no answer_confidence, so max(p) is recovered from the distribution rather than
+    // reusing its differently-defined `confidence`.
+    Equal(0.8, ((ChoiceAnswer)response.Answers["b"]).AnswerConfidence);
+    Equal(0.8, ((ScoreAnswer)response.Answers["c"]).AnswerConfidence);
 });
 
 await Check("http client surfaces API errors instead of inventing an answer", async () =>
@@ -286,7 +340,7 @@ await Check("http client surfaces API errors instead of inventing an answer", as
     const string error = """{"detail":[{"loc":["body"],"msg":"Field required","type":"missing"}]}""";
     var handler = new RecordingHandler(error, HttpStatusCode.UnprocessableEntity);
     using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.typesafe.ai/") };
-    var client = new JevHttpClient(http, "test-key");
+    var client = new SystemOneHttpClient(http, JevEndpoint("test-key", "jev-latest"));
 
     try
     {
@@ -299,6 +353,192 @@ await Check("http client surfaces API errors instead of inventing an answer", as
     }
 
     throw new InvalidOperationException("Expected an HttpRequestException for a 422 response.");
+});
+
+// ---------------------------------------------------------------------------
+// Laya: the same wire contract, different operational defaults.
+// ---------------------------------------------------------------------------
+
+await Check("environment selects laya and defaults to the local laya-serve container", () =>
+{
+    using var _ = new ScopedEnvironment(
+        ("DECISION_PROVIDER", "laya"),
+        ("LAYA_BASE_URL", null),
+        ("LAYA_API_KEY", null),
+        ("LAYA_MODEL", null));
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
+    Equal(DecisionProvider.Laya, endpoint.Provider);
+    Equal(SystemOneEndpoint.DefaultLayaBaseAddress, endpoint.BaseAddress.ToString());
+
+    // No key and no model: an unauthenticated local server, with the router choosing a checkpoint.
+    if (endpoint.ApiKey is not null || endpoint.Model is not null)
+    {
+        throw new InvalidOperationException($"Expected no key and no model, got '{endpoint.ApiKey}' / '{endpoint.Model}'.");
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("LAYA_BASE_URL alone selects laya and is normalized with a trailing slash", () =>
+{
+    using var _ = new ScopedEnvironment(
+        ("DECISION_PROVIDER", null),
+        ("LAYA_BASE_URL", "http://laya.internal:9000"));
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
+    Equal(DecisionProvider.Laya, endpoint.Provider);
+
+    // Without the trailing slash, resolving the relative "v1/systemone" against the base address
+    // would drop the last path segment.
+    Equal("http://laya.internal:9000/", endpoint.BaseAddress.ToString());
+    return Task.CompletedTask;
+});
+
+await Check("jev stays the default and still demands a key", () =>
+{
+    using var _ = new ScopedEnvironment(
+        ("DECISION_PROVIDER", null),
+        ("LAYA_BASE_URL", null),
+        ("TYPESAFE_API_KEY", null));
+
+    Equal(DecisionProvider.Jev, SystemOneEndpoint.ProviderFromEnvironment());
+    try
+    {
+        SystemOneEndpoint.FromEnvironment();
+    }
+    catch (InvalidOperationException ex)
+    {
+        Contains("DECISION_PROVIDER=laya", ex.Message);
+        return Task.CompletedTask;
+    }
+
+    throw new InvalidOperationException("Expected a missing TYPESAFE_API_KEY to be reported.");
+});
+
+await Check("a laya request omits model and sends no bearer token when none is configured", async () =>
+{
+    var handler = new RecordingHandler(LayaResponseBody(allow: 0.93, entropyConfidence: 0.45));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultLayaBaseAddress) };
+    var client = new SystemOneHttpClient(http, LayaEndpoint(apiKey: null, model: null));
+
+    await client.DecideAsync("state", new Dictionary<string, JevQuestion>
+    {
+        ["permission"] = new ChoiceQuestion("route", new Dictionary<string, string?>
+        {
+            ["allow"] = null,
+            ["ask"] = null,
+            ["deny"] = null,
+        }),
+    });
+
+    Equal("v1/systemone", handler.RequestPath);
+
+    // An empty bearer header is a 401 against a server started without LAYA_API_KEY.
+    Equal(string.Empty, handler.Authorization);
+    if (handler.RequestBody.Contains("\"model\"", StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException($"Expected no model field, got {handler.RequestBody}");
+    }
+});
+
+await Check("a laya response contributes answer_confidence and routing", async () =>
+{
+    var handler = new RecordingHandler(LayaResponseBody(allow: 0.93, entropyConfidence: 0.45));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultLayaBaseAddress) };
+    var client = new SystemOneHttpClient(http, LayaEndpoint("secret", "multilingual"));
+
+    SystemOneResponse response = await client.DecideAsync("state", new Dictionary<string, JevQuestion>
+    {
+        ["permission"] = new ChoiceQuestion("route", new Dictionary<string, string?> { ["allow"] = null }),
+    });
+
+    Equal("Bearer secret", handler.Authorization);
+    Contains("\"model\":\"multilingual\"", handler.RequestBody);
+
+    var answer = (ChoiceAnswer)response.Answers["permission"];
+    Equal(0.45, answer.Confidence);
+    Equal(0.93, answer.AnswerConfidence);
+    Equal("english (English Latin text)", response.Routing ?? string.Empty);
+});
+
+await Check("the gate thresholds on max(p), not on the provider's confidence field", async () =>
+{
+    // Laya's `confidence` is normalized entropy, so a decisive answer can report a low value. A
+    // gate reading that field would refuse an answer it should accept, and a threshold tuned on
+    // Laya would over-approve on Jev, where `confidence` is (n*p_max - 1)/(n - 1).
+    var handler = new RecordingHandler(LayaResponseBody(allow: 0.93, entropyConfidence: 0.45));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultLayaBaseAddress) };
+    using var client = new SystemOneHttpClient(http, LayaEndpoint(apiKey: null, model: null));
+
+    GateResult result = await new CopilotToolGate(client).EvaluateAsync("edit", """{"path":"src/App.cs"}""");
+    Equal(GateDecision.Allow, result.Decision);
+    Equal(0.93, result.Confidence ?? 0);
+    Contains("Laya", result.Reason);
+});
+
+await Check("an undecided laya answer still escalates to a human", async () =>
+{
+    // High reported confidence is not the question: the probability mass on `allow` is what the
+    // code-owned threshold asks about, and 0.5 does not clear it.
+    var handler = new RecordingHandler(LayaResponseBody(allow: 0.5, entropyConfidence: 0.95));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultLayaBaseAddress) };
+    using var client = new SystemOneHttpClient(http, LayaEndpoint(apiKey: null, model: null));
+
+    GateResult result = await new CopilotToolGate(client).EvaluateAsync("edit", """{"path":"src/App.cs"}""");
+    Equal(GateDecision.Ask, result.Decision);
+});
+
+await Check("switching provider does not change a single gate decision in mock mode", async () =>
+{
+    (string Tool, string Args)[] cases =
+    [
+        ("view", """{"path":"README.md"}"""),
+        ("edit", """{"path":"src/App.cs"}"""),
+        ("bash", """{"command":"dotnet add package Foo"}"""),
+        ("bash", """{"command":"git push --force origin main"}"""),
+        ("edit", """{"change":"update authentication middleware"}"""),
+        ("laya_noul", """{"state":"A PR changes token refresh."}"""),
+    ];
+
+    foreach ((string tool, string arguments) in cases)
+    {
+        GateResult jevResult = await Gate(DecisionProvider.Jev).EvaluateAsync(tool, arguments);
+        GateResult layaResult = await Gate(DecisionProvider.Laya).EvaluateAsync(tool, arguments);
+        if (jevResult.Decision != layaResult.Decision)
+        {
+            throw new InvalidOperationException(
+                $"{tool}: jev said {jevResult.Decision}, laya said {layaResult.Decision}.");
+        }
+    }
+});
+
+await Check("the mock reproduces each provider's own confidence definition", async () =>
+{
+    var questions = new Dictionary<string, JevQuestion>
+    {
+        ["route"] = new ChoiceQuestion("route", new Dictionary<string, string?>
+        {
+            ["allow"] = null,
+            ["ask"] = null,
+            ["deny"] = null,
+        }),
+    };
+
+    var jevAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Jev)
+        .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
+    var layaAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Laya)
+        .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
+
+    // Same distribution, so the same max(p) and therefore the same policy outcome...
+    Equal(jevAnswer.AnswerConfidence, layaAnswer.AnswerConfidence);
+
+    // ...but two different reported `confidence` values, which is the trap this repo gates around.
+    if (Math.Abs(jevAnswer.Confidence - layaAnswer.Confidence) < 0.01)
+    {
+        throw new InvalidOperationException(
+            $"Expected the two definitions to differ, got {jevAnswer.Confidence} and {layaAnswer.Confidence}.");
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -347,7 +587,39 @@ await Check("mock score stays inside the rubric", async () =>
 Console.WriteLine(failures == 0 ? "All self-tests passed." : $"{failures} self-test(s) failed.");
 return failures == 0 ? 0 : 1;
 
-CopilotToolGate Gate() => new(new MockJevClient());
+CopilotToolGate Gate(DecisionProvider provider = DecisionProvider.Jev) => new(new MockJevClient(provider));
+
+static SystemOneEndpoint JevEndpoint(string? apiKey, string? model) =>
+    new(DecisionProvider.Jev, new Uri("https://api.typesafe.ai/"), apiKey, model);
+
+static SystemOneEndpoint LayaEndpoint(string? apiKey, string? model) =>
+    new(DecisionProvider.Laya, new Uri(SystemOneEndpoint.DefaultLayaBaseAddress), apiKey, model);
+
+// A laya-serve answer: the Jev-shaped body plus `answer_confidence`, `action` and `routing`.
+static string LayaResponseBody(double allow, double entropyConfidence)
+{
+    double rest = Math.Round((1 - allow) / 2, 4);
+    string choice = allow >= rest ? "allow" : "ask";
+
+    // JSON numbers are invariant; a comma decimal separator from the machine locale would make
+    // this body unparseable on exactly the developer machines that would not notice.
+    static string Number(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+
+    return $$"""
+        {
+          "model": "laya-rl-agent",
+          "answers": {
+            "permission": {"type": "choice", "choice": "{{choice}}",
+              "probabilities": {"allow": {{Number(allow)}}, "ask": {{Number(rest)}}, "deny": {{Number(rest)}}},
+              "confidence": {{Number(entropyConfidence)}}, "answer_confidence": {{Number(Math.Max(allow, rest))}},
+              "action": {"act_probability": 1.0}
+            }
+          },
+          "usage": {"input_tokens": 74, "output_tokens": 0},
+          "routing": {"model": "english", "repo": "convaiinnovations/laya", "reason": "English Latin text"}
+        }
+        """;
+}
 
 async Task Check(string name, Func<Task> test)
 {
@@ -389,6 +661,35 @@ static void StartsWith(string expected, string actual)
 }
 
 static string Truncate(string value) => value.Length <= 40 ? value : value[..40] + "...";
+
+/// <summary>
+/// Sets environment variables for the duration of one test and restores them afterwards, so the
+/// provider-resolution tests cannot leak configuration into the tests that follow.
+/// </summary>
+internal sealed class ScopedEnvironment : IDisposable
+{
+    private readonly (string Name, string? Previous)[] _previous;
+
+    public ScopedEnvironment(params (string Name, string? Value)[] values)
+    {
+        _previous = values
+            .Select(v => (v.Name, Environment.GetEnvironmentVariable(v.Name)))
+            .ToArray();
+
+        foreach ((string name, string? value) in values)
+        {
+            Environment.SetEnvironmentVariable(name, value);
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach ((string name, string? previous) in _previous)
+        {
+            Environment.SetEnvironmentVariable(name, previous);
+        }
+    }
+}
 
 internal sealed class RecordingHandler(string responseBody, HttpStatusCode status = HttpStatusCode.OK)
     : HttpMessageHandler

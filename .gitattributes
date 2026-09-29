@@ -61,3 +61,9 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Shell scripts must stay LF. A CRLF shebang line fails with "bad interpreter"
+# on Linux/macOS, and Git Bash on Windows reads LF without complaint.
+###############################################################################
+*.sh text eol=lf

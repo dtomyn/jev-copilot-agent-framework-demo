@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-present="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ten Levels of Typed Decisions - live demo</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>&#9878;</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Ten Levels of Typed Decisions <span>&middot; live demo</span></div>
+
+  <div class="field">
+    <label id="provider-label">Provider</label>
+    <div class="seg" id="provider-seg" role="group" aria-labelledby="provider-label">
+      <button type="button" data-provider="laya">Laya</button>
+      <button type="button" data-provider="jev">Jev</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label id="mode-label">Mode</label>
+    <div class="seg" id="mode-seg" role="group" aria-labelledby="mode-label">
+      <button type="button" data-mode="mock">Mock</button>
+      <button type="button" data-mode="live">Live</button>
+    </div>
+  </div>
+
+  <span class="statusdot" id="statusdot"></span>
+  <span class="status-text" id="statustext">Loading...</span>
+
+  <div class="spacer"></div>
+
+  <button type="button" class="btn" id="present-toggle" aria-pressed="false" title="Scale up for a projector">Presenter</button>
+  <button type="button" class="btn" id="theme-toggle" title="Toggle light and dark">Dark</button>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Levels">
+    <h2>Levels</h2>
+    <div id="rail"></div>
+  </nav>
+  <main id="main" aria-live="polite"></main>
+</div>
+
+<script src="highlight.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -13,8 +13,11 @@ using Jev.Core;
 //   timeout -> fail-OPEN, Copilot falls back to its normal permission flow
 //
 // Because a timeout fails open, this program enforces its own deadline that is deliberately
-// shorter than the hook's `timeoutSec`, so a slow Jev call produces an explicit `ask` instead of
-// letting the outer timeout hand the decision back to the default flow.
+// shorter than the hook's `timeoutSec`, so a slow decision call produces an explicit `ask`
+// instead of letting the outer timeout hand the decision back to the default flow.
+//
+// The decision provider is selected by DECISION_PROVIDER (jev | laya) and the mode by
+// DECISION_MODE (off | mock | live | auto). The original JEV_* names remain accepted.
 
 const int DefaultDeadlineMs = 4000;
 
@@ -37,7 +40,7 @@ try
     string toolName = NormalizeToolName(ReadString(root, "toolName", "tool_name") ?? string.Empty);
     string toolArgs = ReadValue(root, "toolArgs", "tool_input") ?? "{}";
 
-    IJevClient? jev = CreateJevFromEnvironment();
+    IJevClient? jev = CreateProviderFromEnvironment();
     using IDisposable? jevLifetime = jev as IDisposable;
     var gate = new CopilotToolGate(jev);
     GateResult result = await gate.EvaluateAsync(toolName, toolArgs, deadline.Token);
@@ -55,16 +58,16 @@ try
 catch (OperationCanceledException)
 {
     // Beat Copilot's own hook timeout, which would otherwise fail open.
-    Console.Error.WriteLine("Jev hook exceeded its internal deadline; requiring human approval.");
-    Emit("ask", "The Jev hook did not reach a decision in time; require human approval.");
+    Console.Error.WriteLine("The policy hook exceeded its internal deadline; requiring human approval.");
+    Emit("ask", "The policy hook did not reach a decision in time; require human approval.");
     return 0;
 }
 catch (Exception ex)
 {
-    // A broken Jev call must not become an accidental allow, and must not become an opaque crash
-    // either: a non-zero exit would deny every tool call while the provider is misconfigured.
-    Console.Error.WriteLine($"Jev hook degraded to human approval: {ex.Message}");
-    Emit("ask", "The Jev hook could not complete safely; require human approval.");
+    // A broken decision call must not become an accidental allow, and must not become an opaque
+    // crash either: a non-zero exit would deny every tool call while the provider is misconfigured.
+    Console.Error.WriteLine($"The policy hook degraded to human approval: {ex.Message}");
+    Emit("ask", "The policy hook could not complete safely; require human approval.");
     return 0;
 }
 
@@ -75,25 +78,38 @@ static void Emit(string decision, string reason) =>
 
 static TimeSpan ReadDeadline()
 {
-    string? raw = Environment.GetEnvironmentVariable("JEV_HOOK_DEADLINE_MS");
+    string? raw = ReadEnvironment("DECISION_HOOK_DEADLINE_MS", "JEV_HOOK_DEADLINE_MS");
     return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int ms) && ms > 0
         ? TimeSpan.FromMilliseconds(ms)
         : TimeSpan.FromMilliseconds(DefaultDeadlineMs);
 }
 
-static IJevClient? CreateJevFromEnvironment()
+static IJevClient? CreateProviderFromEnvironment()
 {
-    string mode = (Environment.GetEnvironmentVariable("JEV_MODE") ?? "off").Trim().ToLowerInvariant();
+    string mode = (ReadEnvironment("DECISION_MODE", "JEV_MODE") ?? "off").Trim().ToLowerInvariant();
+    DecisionProvider provider = SystemOneEndpoint.ProviderFromEnvironment();
+
+    // The live HTTP call is capped well inside the hook's own deadline. A local Laya container is
+    // fast once warm, but its first request after a cold start loads a checkpoint, which is far
+    // longer than any hook budget: that turns into an explicit `ask`, never a silent allow.
     return mode switch
     {
         "off" => null,
-        "mock" => new MockJevClient(),
-        "live" => JevHttpClient.FromEnvironment(TimeSpan.FromSeconds(2)),
-        "auto" when !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TYPESAFE_API_KEY"))
-            => JevHttpClient.FromEnvironment(TimeSpan.FromSeconds(2)),
+        "mock" => new MockJevClient(provider),
+        "live" => SystemOneHttpClient.FromEnvironment(provider, TimeSpan.FromSeconds(2)),
+        "auto" when SystemOneEndpoint.IsLiveConfigured(provider)
+            => SystemOneHttpClient.FromEnvironment(provider, TimeSpan.FromSeconds(2)),
         "auto" => null,
-        _ => throw new InvalidOperationException("JEV_MODE must be off, mock, live, or auto."),
+        _ => throw new InvalidOperationException("DECISION_MODE must be off, mock, live, or auto."),
     };
+}
+
+// DECISION_* is the current name; the JEV_* name is still honoured so an existing .env or shell
+// session keeps working after the provider became selectable.
+static string? ReadEnvironment(string name, string legacyName)
+{
+    string? value = Environment.GetEnvironmentVariable(name);
+    return string.IsNullOrWhiteSpace(value) ? Environment.GetEnvironmentVariable(legacyName) : value;
 }
 
 // Copilot CLI and other agent CLIs name the same primitives differently. Normalizing here keeps

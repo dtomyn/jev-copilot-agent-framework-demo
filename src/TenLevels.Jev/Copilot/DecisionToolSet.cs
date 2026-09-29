@@ -4,22 +4,41 @@ using Microsoft.Extensions.AI;
 
 namespace TenLevels.Jev.Copilot;
 
-public sealed class JevToolSet
+/// <summary>
+/// The three System-One primitives, exposed to a Microsoft Agent Framework agent as function
+/// tools. The tool names carry the provider prefix (<c>jev_*</c> or <c>laya_*</c>) so a transcript
+/// shows which engine answered; <c>CopilotToolGate</c> allows both prefixes, because the
+/// repository hook also sees these calls.
+/// </summary>
+public sealed class DecisionToolSet
 {
     private readonly IJevClient _jev;
+    private readonly string _prefix;
+    private readonly string _providerName;
 
-    public JevToolSet(IJevClient jev) => _jev = jev;
+    public DecisionToolSet(IJevClient jev)
+    {
+        _jev = jev;
+        _prefix = jev.Provider == DecisionProvider.Laya ? "laya" : "jev";
+        _providerName = jev.Provider == DecisionProvider.Laya ? "Laya" : "Jev";
+    }
+
+    public string NoulToolName => $"{_prefix}_noul";
+
+    public string ChoiceToolName => $"{_prefix}_choice";
+
+    public string ScoreToolName => $"{_prefix}_score";
 
     public IList<AIFunctionDeclaration> AllTools() =>
     [
-        AIFunctionFactory.Create(NoulAsync, "jev_noul", "Ask Jev a bounded yes/no question and receive a probability from 0 to 1."),
-        AIFunctionFactory.Create(ChoiceAsync, "jev_choice", "Ask Jev to choose one item from a bounded list and receive probabilities/confidence."),
-        AIFunctionFactory.Create(ScoreAsync, "jev_score", "Ask Jev to rate state against an ordered list of descriptive levels."),
+        AIFunctionFactory.Create(NoulAsync, NoulToolName, $"Ask {_providerName} a bounded yes/no question and receive a probability from 0 to 1."),
+        AIFunctionFactory.Create(ChoiceAsync, ChoiceToolName, $"Ask {_providerName} to choose one item from a bounded list and receive probabilities/confidence."),
+        AIFunctionFactory.Create(ScoreAsync, ScoreToolName, $"Ask {_providerName} to rate state against an ordered list of descriptive levels."),
     ];
 
     public IList<AIFunctionDeclaration> NoulOnly() =>
     [
-        AIFunctionFactory.Create(NoulAsync, "jev_noul", "Ask Jev a bounded yes/no question and receive a probability from 0 to 1."),
+        AIFunctionFactory.Create(NoulAsync, NoulToolName, $"Ask {_providerName} a bounded yes/no question and receive a probability from 0 to 1."),
     ];
 
     private async Task<string> NoulAsync(string state, string question, CancellationToken cancellationToken)
@@ -47,7 +66,10 @@ public sealed class JevToolSet
         {
             type = "choice",
             choice = answer.Choice,
+            // Both numbers, named apart: `confidence` is the provider's own definition and is not
+            // comparable across providers, `answerConfidence` is max(p) and is.
             confidence = answer.Confidence,
+            answerConfidence = answer.AnswerConfidence,
             probabilities = answer.Probabilities,
         }, JevJson.Options);
     }
@@ -68,6 +90,7 @@ public sealed class JevToolSet
             type = "score",
             score = answer.Score,
             confidence = answer.Confidence,
+            answerConfidence = answer.AnswerConfidence,
             legend = answer.Legend,
             probabilities = answer.Probabilities,
         }, JevJson.Options);

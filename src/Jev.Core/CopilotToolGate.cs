@@ -7,7 +7,52 @@ public enum GateDecision
     Deny,
 }
 
-public sealed record GateResult(GateDecision Decision, string Reason, double? Confidence = null);
+/// <summary>
+/// Which layer of <see cref="CopilotToolGate.EvaluateAsync"/> produced a result.
+///
+/// The order of those layers is the policy, so anything that has to explain a decision (the
+/// presentation UI, a transcript, a log line) must be told which one fired rather than inferring
+/// it from the reason string or re-running the heuristics itself. Inferring it is how an
+/// explanation silently stops matching the gate it claims to explain.
+/// </summary>
+public enum GateStage
+{
+    /// <summary>A deterministic hard-deny pattern matched. No model was consulted.</summary>
+    HardDeny,
+
+    /// <summary>Possible credential material. Escalated without forwarding it to a model.</summary>
+    Sensitive,
+
+    /// <summary>The tool cannot mutate the workspace or the host.</summary>
+    ReadOnlyTool,
+
+    /// <summary>A host-registered decision function tool, which returns a judgment and nothing else.</summary>
+    DecisionTool,
+
+    /// <summary>No provider is configured, so every remaining mutation needs a human.</summary>
+    NoProvider,
+
+    /// <summary>The bounded model classification plus the code-owned confidence thresholds.</summary>
+    Model,
+}
+
+/// <param name="Decision">What the caller must do with the proposed tool call.</param>
+/// <param name="Reason">One sentence, safe to show a human.</param>
+/// <param name="Confidence">
+/// <c>max(p)</c> on the reported answer, or <c>1.0</c> for the deterministic layers. Never the
+/// provider's own <c>confidence</c> field; see <see cref="ChoiceAnswer.Confidence"/>.
+/// </param>
+/// <param name="Stage">Which layer decided.</param>
+/// <param name="Probabilities">
+/// The allow/ask/deny distribution when <see cref="GateStage.Model"/> decided, otherwise
+/// <c>null</c>. Reported so an explanation can show the numbers the thresholds were applied to.
+/// </param>
+public sealed record GateResult(
+    GateDecision Decision,
+    string Reason,
+    double? Confidence = null,
+    GateStage Stage = GateStage.Model,
+    IReadOnlyDictionary<string, double>? Probabilities = null);
 
 public sealed class CopilotToolGate
 {
@@ -19,22 +64,32 @@ public sealed class CopilotToolGate
         "fetch", "web_fetch", "web_search",
     };
 
-    // The Jev function tools this repository registers on the Microsoft Agent Framework agent
-    // (levels 6, 7, 10). They are in-process host functions that ask Jev a bounded question and
-    // return a number: they cannot touch the workspace, the shell, or the host.
+    // The decision function tools this repository registers on the Microsoft Agent Framework agent
+    // (levels 6, 7, 10). They are in-process host functions that ask the provider a bounded
+    // question and return a number: they cannot touch the workspace, the shell, or the host.
     //
     // They must be listed here because the repository hook applies to *every* tool the agent
     // calls, including the ones the host registered. Without this, the hook denies the agent's own
-    // Jev calls and levels 6, 7, and 10 cannot run. Hard-deny and credential checks still run
-    // first, so a Jev call carrying secrets is still escalated rather than waved through.
-    private static readonly HashSet<string> JevDecisionTools = new(StringComparer.OrdinalIgnoreCase)
+    // decision calls and levels 6, 7, and 10 cannot run. Both prefixes are listed because
+    // DecisionToolSet names its tools after the selected provider, and the hook has no way to know
+    // which provider the agent in another process was started with. Hard-deny and credential
+    // checks still run first, so a decision call carrying secrets is escalated, not waved through.
+    private static readonly HashSet<string> DecisionTools = new(StringComparer.OrdinalIgnoreCase)
     {
         "jev_noul", "jev_choice", "jev_score",
+        "laya_noul", "laya_choice", "laya_score",
     };
 
     private readonly IJevClient? _jev;
 
     public CopilotToolGate(IJevClient? jev) => _jev = jev;
+
+    private string ProviderName => _jev?.Provider switch
+    {
+        DecisionProvider.Laya => "Laya",
+        DecisionProvider.Jev => "Jev",
+        _ => "The decision provider",
+    };
 
     public async Task<GateResult> EvaluateAsync(
         string toolName,
@@ -44,27 +99,27 @@ public sealed class CopilotToolGate
         string combined = $"tool={toolName}\narguments={toolArguments}";
         if (RiskHeuristics.IsHardDenied(combined))
         {
-            return new GateResult(GateDecision.Deny, "Deterministic policy matched a destructive command pattern.", 1.0);
+            return new GateResult(GateDecision.Deny, "Deterministic policy matched a destructive command pattern.", 1.0, GateStage.HardDeny);
         }
 
         if (RiskHeuristics.LooksSensitive(combined))
         {
-            return new GateResult(GateDecision.Ask, "Potential secret or credential material detected; require human approval and do not send it to Jev.", 1.0);
+            return new GateResult(GateDecision.Ask, "Potential secret or credential material detected; require human approval and do not send it to a decision model.", 1.0, GateStage.Sensitive);
         }
 
         if (ReadOnlyTools.Contains(toolName))
         {
-            return new GateResult(GateDecision.Allow, "Read-only tool fast path.", 1.0);
+            return new GateResult(GateDecision.Allow, "Read-only tool fast path.", 1.0, GateStage.ReadOnlyTool);
         }
 
-        if (JevDecisionTools.Contains(toolName))
+        if (DecisionTools.Contains(toolName))
         {
-            return new GateResult(GateDecision.Allow, "Host-registered Jev decision tool; it returns a judgment and cannot mutate anything.", 1.0);
+            return new GateResult(GateDecision.Allow, "Host-registered decision tool; it returns a judgment and cannot mutate anything.", 1.0, GateStage.DecisionTool);
         }
 
         if (_jev is null)
         {
-            return new GateResult(GateDecision.Ask, "No live/mock Jev decision provider is configured; require human approval.");
+            return new GateResult(GateDecision.Ask, "No live/mock decision provider is configured; require human approval.", null, GateStage.NoProvider);
         }
 
         var questions = new Dictionary<string, JevQuestion>
@@ -93,17 +148,22 @@ public sealed class CopilotToolGate
         double allow = Probability(answer, "allow");
         double deny = Probability(answer, "deny");
 
-        if (deny >= 0.55 || (answer.Choice.Equals("deny", StringComparison.OrdinalIgnoreCase) && answer.Confidence >= 0.60))
+        // Gate on AnswerConfidence (max(p)), never on the provider's own `confidence` field: Jev
+        // reports (n*p_max - 1)/(n - 1) and Laya reports normalized entropy, so a threshold tuned
+        // against one provider would silently loosen or tighten against the other.
+        double confidence = answer.AnswerConfidence;
+
+        if (deny >= 0.55 || (answer.Choice.Equals("deny", StringComparison.OrdinalIgnoreCase) && confidence >= 0.60))
         {
-            return new GateResult(GateDecision.Deny, "Jev classified the tool call as unsafe within the bounded policy.", answer.Confidence);
+            return new GateResult(GateDecision.Deny, $"{ProviderName} classified the tool call as unsafe within the bounded policy.", confidence, GateStage.Model, answer.Probabilities);
         }
 
-        if (allow >= 0.85 && answer.Confidence >= 0.75)
+        if (allow >= 0.85 && confidence >= 0.75)
         {
-            return new GateResult(GateDecision.Allow, "Jev classified the tool call as low risk with high confidence.", answer.Confidence);
+            return new GateResult(GateDecision.Allow, $"{ProviderName} classified the tool call as low risk with high confidence.", confidence, GateStage.Model, answer.Probabilities);
         }
 
-        return new GateResult(GateDecision.Ask, "Jev did not clear the confidence threshold; require human approval.", answer.Confidence);
+        return new GateResult(GateDecision.Ask, $"{ProviderName} did not clear the confidence threshold; require human approval.", confidence, GateStage.Model, answer.Probabilities);
     }
 
     private static double Probability(ChoiceAnswer answer, string key) =>

@@ -31,10 +31,12 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 │   ├── jev-hook.sh / jev-hook.ps1
 │   ├── laya-up.sh / laya-up.ps1         # start/stop the local Laya container
 │   ├── laya-down.sh / laya-down.ps1
-│   └── test-hook.sh / test-hook.ps1
+│   ├── test-hook.sh / test-hook.ps1
+│   └── webui.sh / webui.ps1             # build and start the interactive demo UI
 ├── src/
 │   ├── Jev.Core/                        # typed System-One client + mock + risk rules + policy gate
 │   ├── Jev.CopilotHook/                 # stdin/stdout Copilot hook adapter
+│   ├── Jev.WebUi/                       # browser UI: code on the left, one-click runs on the right
 │   └── TenLevels.Jev/                   # levels 01-10
 ├── tests/Jev.Core.SelfTests/            # dependency-free smoke tests
 ├── global.json                          # pins the .NET 10 SDK
@@ -59,6 +61,28 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 
 See [`docs/LEVELS.md`](docs/LEVELS.md) for the rationale.
 For a guided, command-by-command walkthrough with presenter notes, open [`docs/tutorial.html`](docs/tutorial.html) in a browser.
+
+## The interactive demo UI
+
+For presenting, there is a browser UI that shows each level's real source next to a panel that runs it:
+
+```bash
+./scripts/webui.sh          # macOS / Linux
+./scripts/webui.ps1         # Windows PowerShell 7+
+```
+
+It serves on <http://127.0.0.1:5088> and **defaults to Laya in mock mode**, so it needs no API key, no container and no network.
+
+- **Provider and mode switch per request**, from the top bar.
+  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL` and a running `laya-serve`.
+  Everything else runs against the deterministic mock.
+- **Every scenario is editable.**
+  The state, the question wording, the choice set, the score rubric and the code-owned threshold all start at the level's checked-in values and can be changed and re-run.
+- **The code pane is read from disk**, so what is on screen is what runs, including the gate and the hook adapter for the levels that are about them.
+- **Level 8 starts the real hook executable** as a child process, writes a `preToolUse` payload to its stdin and shows the raw stdout, the exit code, and whether the one-JSON-object contract was satisfied. The checked-in payloads under `samples/hooks/` are in the picker, with their expected decision checked against what the hook actually returned.
+- **Levels 6, 7 and 10** offer two things: a sandbox that calls one decision function tool with the arguments an agent would pass, needing no Copilot runtime, and a button that shells out to the real CLI and streams its output.
+
+The UI project builds offline: it references `Jev.Core` and `Jev.CopilotHook`, never `TenLevels.Jev`, so the npm download that project needs is not in the way of starting the demo. Pass `--include-agent-levels` (or `-IncludeAgentLevels`) to build that project too.
 
 ## Prerequisites
 

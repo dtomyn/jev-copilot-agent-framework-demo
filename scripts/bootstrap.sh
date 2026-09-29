@@ -42,5 +42,6 @@ MSG
 fi
 
 echo
-echo "Try: dotnet run --project src/TenLevels.Jev -- --list"
-echo "Then: JEV_MODE=mock copilot"
+echo "Try:  dotnet run --project src/TenLevels.Jev -- --list"
+echo "Then: DECISION_MODE=mock copilot"
+echo "Live open-source provider: ./scripts/laya-up.sh  (see docs/LAYA.md)"

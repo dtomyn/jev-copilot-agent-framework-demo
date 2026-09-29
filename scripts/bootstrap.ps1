@@ -47,5 +47,6 @@ Levels 1-5, 8, and 9 and the Copilot hook are built and usable regardless.
 }
 
 Write-Host ""
-Write-Host "Try: dotnet run --project src/TenLevels.Jev -- --list"
-Write-Host 'Then: $env:JEV_MODE="mock"; copilot'
+Write-Host "Try:  dotnet run --project src/TenLevels.Jev -- --list"
+Write-Host 'Then: $env:DECISION_MODE="mock"; copilot'
+Write-Host "Live open-source provider: ./scripts/laya-up.ps1  (see docs/LAYA.md)"

@@ -24,8 +24,11 @@ if (args.Contains("--help", StringComparer.OrdinalIgnoreCase) || args.Contains("
           --level <n>             Run one level (default: 1).
           --all                   Run every level that does not need a Copilot runtime.
           --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
-          --jev <mock|live>       Decision provider (default: mock).
-                                  'live' requires TYPESAFE_API_KEY.
+          --provider <jev|laya>   Decision engine (default: DECISION_PROVIDER, else laya when
+                                  LAYA_BASE_URL is set, else jev).
+          --mode <mock|live>      How to reach it (default: mock). '--jev' is accepted as an alias.
+                                  'live' needs TYPESAFE_API_KEY for jev, or a running laya-serve
+                                  for laya (see docs/LAYA.md).
         """);
     return 0;
 }
@@ -41,15 +44,20 @@ if (args.Contains("--list", StringComparer.OrdinalIgnoreCase))
     return 0;
 }
 
-string jevMode = (ReadOption(args, "--jev") ?? "mock").ToLowerInvariant();
+string mode = (ReadOption(args, "--mode") ?? ReadOption(args, "--jev") ?? "mock").ToLowerInvariant();
 IJevClient jev;
 try
 {
-    jev = jevMode switch
+    string? providerOption = ReadOption(args, "--provider");
+    DecisionProvider provider = providerOption is null
+        ? SystemOneEndpoint.ProviderFromEnvironment()
+        : SystemOneEndpoint.Parse(providerOption);
+
+    jev = mode switch
     {
-        "mock" => new MockJevClient(),
-        "live" => JevHttpClient.FromEnvironment(),
-        _ => throw new ArgumentException($"--jev must be 'mock' or 'live', not '{jevMode}'."),
+        "mock" => new MockJevClient(provider),
+        "live" => SystemOneHttpClient.FromEnvironment(provider),
+        _ => throw new ArgumentException($"--mode must be 'mock' or 'live', not '{mode}'."),
     };
 }
 catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -58,7 +66,7 @@ catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
     return 2;
 }
 
-// JevHttpClient.FromEnvironment owns the HttpClient it creates; MockJevClient owns nothing.
+// SystemOneHttpClient.FromEnvironment owns the HttpClient it creates; MockJevClient owns nothing.
 using IDisposable? jevLifetime = jev as IDisposable;
 
 bool runAll = args.Contains("--all", StringComparer.OrdinalIgnoreCase);
@@ -91,7 +99,7 @@ Console.CancelKeyPress += (_, e) =>
     cancellation.Cancel();
 };
 
-Console.WriteLine($"Jev mode: {jevMode}");
+Console.WriteLine($"Decision provider: {jev.Description}");
 
 int exitCode = 0;
 foreach (ILevelDemo level in selected)

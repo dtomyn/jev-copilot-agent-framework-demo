@@ -13,6 +13,10 @@ public interface ILevelDemo
 
 public static class LevelOutput
 {
+    /// <summary>Display name of the provider behind a client, for prompts and level output.</summary>
+    public static string ProviderName(IJevClient jev) =>
+        jev.Provider == DecisionProvider.Laya ? "Laya" : "Jev";
+
     public static void Header(ILevelDemo level)
     {
         Console.WriteLine();
@@ -21,13 +25,16 @@ public static class LevelOutput
         Console.WriteLine();
     }
 
+    // Both confidence numbers are printed because they are not the same quantity: `confidence` is
+    // the provider's own definition (Jev's (n*p_max - 1)/(n - 1), Laya's normalized entropy) and
+    // `answer` is max(p), which is what policy thresholds use.
     public static void Answer(string name, JevAnswer answer)
     {
         Console.WriteLine($"{name}: {answer switch
         {
             NoulAnswer n => $"noul={n.Noul:0.00}",
-            ChoiceAnswer c => $"choice={c.Choice}, confidence={c.Confidence:0.00}",
-            ScoreAnswer s => $"score={s.Score:0.00}, confidence={s.Confidence:0.00}",
+            ChoiceAnswer c => $"choice={c.Choice}, confidence={c.Confidence:0.00} (answer={c.AnswerConfidence:0.00})",
+            ScoreAnswer s => $"score={s.Score:0.00}, confidence={s.Confidence:0.00} (answer={s.AnswerConfidence:0.00})",
             _ => answer.ToString(),
         }}");
     }
