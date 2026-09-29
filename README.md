@@ -82,6 +82,15 @@ It serves on <http://127.0.0.1:5088> and **defaults to Laya in mock mode**, so i
 - **Level 8 starts the real hook executable** as a child process, writes a `preToolUse` payload to its stdin and shows the raw stdout, the exit code, and whether the one-JSON-object contract was satisfied. The checked-in payloads under `samples/hooks/` are in the picker, with their expected decision checked against what the hook actually returned.
 - **Levels 6, 7 and 10** offer two things: a sandbox that calls one decision function tool with the arguments an agent would pass, needing no Copilot runtime, and a button that shells out to the real CLI and streams its output.
 
+### The tutorial and the UI are one thing
+
+[`docs/tutorial.html`](docs/tutorial.html) is the written walkthrough and the UI is the live one, and they are wired together rather than maintained in parallel.
+
+- The UI reads its **presenter notes straight out of the tutorial** and shows the ones for the level on screen, behind a `Notes: on / off` toggle that mirrors the tutorial's own. A note belongs to a level because its block carries `data-level="5 9"` in the tutorial; that attribute is the whole coupling. Write the note once, in the tutorial, and it appears in both places.
+- Each note links back to the tutorial section it came from.
+- The tutorial is served at `/tutorial` by the UI, so those links and the `Tutorial` button in the top bar stay same-origin and survive being sent to someone.
+- Each level section in the tutorial carries a **Run live** link that opens that level in the UI.
+
 The UI project builds offline: it references `Jev.Core` and `Jev.CopilotHook`, never `TenLevels.Jev`, so the npm download that project needs is not in the way of starting the demo. Pass `--include-agent-levels` (or `-IncludeAgentLevels`) to build that project too.
 
 ## Prerequisites

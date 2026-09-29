@@ -54,6 +54,14 @@ nav.toc a:hover{background:var(--bg-alt);color:var(--fg)}
 nav.toc a.active{background:var(--accent-soft);color:var(--accent);font-weight:600;border-left-color:var(--accent)}
 main{padding:30px 46px 140px;max-width:1010px;min-width:0}
 
+/* Below this the fixed sidebar column pushes the article off the viewport entirely. Stacking
+   keeps the page usable on a laptop half-screen, which is how it gets read next to a terminal. */
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  nav.toc{position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--border);padding:18px 22px}
+  main{padding:26px 22px 110px}
+}
+
 h1{font-size:34px;line-height:1.2;letter-spacing:-.02em;margin:.2em 0 .3em}
 h2{font-size:24px;letter-spacing:-.015em;margin:2.5em 0 .5em;padding-bottom:.3em;border-bottom:1px solid var(--border);scroll-margin-top:80px}
 h3{font-size:18.5px;margin:1.9em 0 .4em;scroll-margin-top:80px}
@@ -82,12 +90,21 @@ pre .warn{color:#d29922}
 pre .bad{color:#f85149}
 pre .hl{color:#79c0ff}
 
+/* Deep link from a tutorial section into the same level in the interactive UI. Printed pages get
+   nothing useful from a localhost URL, so it is hidden there. */
+.runlive{display:inline-block;vertical-align:3px;margin-left:10px;padding:2px 10px;border-radius:20px;
+  border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);
+  font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0;text-decoration:none;white-space:nowrap}
+.runlive:hover{background:var(--accent);color:#fff}
+h2 .runlive,h3 .runlive{text-transform:none}
+
 .notes{margin:1.15em 0;border:1px solid var(--note-border);border-left-width:4px;border-radius:9px;background:var(--note-bg);color:var(--note-fg);padding:12px 18px;font-size:14.5px}
 .notes>.label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--note-border);margin-bottom:6px}
 .notes p:first-of-type{margin-top:0}
 .notes p:last-child,.notes ul:last-child,.notes ol:last-child{margin-bottom:0}
 .notes code{background:color-mix(in srgb,var(--note-border) 14%,transparent);border-color:color-mix(in srgb,var(--note-border) 32%,transparent)}
 body.hide-notes .notes{display:none}
+@media print{.runlive{display:none}}
 
 .callout{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:9px;padding:11px 16px;margin:1.15em 0;background:var(--bg-alt);font-size:15px}
 .callout.warn{border-left-color:var(--ask);background:var(--ask-bg)}
@@ -215,6 +232,19 @@ explaining what is really going on.
   button in the header to hide them and get a clean command-only runbook, or
   <span class="kbd">Print</span> to produce a handout. All console output shown below was captured
   from an actual run of this repository, not written by hand.</p>
+</div>
+
+<div class="callout good">
+  <strong>There is a live version of this page</strong>
+  <p>Run <code>./scripts/webui.ps1</code> (or <code>./scripts/webui.sh</code>) and open
+  <a href="http://127.0.0.1:5088">127.0.0.1:5088</a>. Every level gets its real source on one side and
+  a panel that runs it on the other, with the state, the questions and the code-owned thresholds
+  editable. It defaults to <b>Laya in mock mode</b>, so it needs no API key, no container and no
+  network.</p>
+  <p>The two pages are wired together. Each level section below carries a
+  <span class="runlive" style="cursor:default">Run live</span> link that opens that level in the UI,
+  and the UI shows these same presenter notes, read out of this file, behind its own
+  <span class="kbd">Presenter notes</span> toggle. Write a note here once and it appears in both.</p>
 </div>
 
 <h2 id="model">The mental model: the model advises, code authorizes</h2>
@@ -534,7 +564,7 @@ interchangeable everywhere in the repo:</p>
 }</code></pre>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="1 2 3 4">
   <div class="label">Presenter note</div>
   <p>Three things to point at in this section.</p>
   <p><b>Why "bounded" matters.</b> The reason a Score takes an ordered array of <em>descriptive</em>
@@ -601,7 +631,7 @@ run is reproducible whatever is already set in your environment:</p>
   <code>Jev live (https://api.typesafe.ai/, model=jev-latest)</code>.</p>
 </div>
 
-<h3>Level 01 - the smart if-statement</h3>
+<h3 id="level01">Level 01 - the smart if-statement <a class="runlive" href="http://127.0.0.1:5088/#level1" title="Open level 1 in the interactive demo UI">Run live</a></h3>
 
 <div class="code">
   <div class="code-head">output<div class="spacer"></div></div>
@@ -629,7 +659,7 @@ var answer = (NoulAnswer)response.Answers["dangerous"];
 Console.WriteLine(answer.Noul &gt;= <span class="hl">0.80</span> ? "C# policy: BLOCK" : "C# policy: continue normal checks");</code></pre>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="1">
   <div class="label">Presenter note</div>
   <p>The whole lesson of level 1 is the last line. The threshold <code>0.80</code> is a literal in your
   source file. It shows up in a diff, it can carry a comment explaining why it is 0.80 and not 0.65, and
@@ -642,7 +672,7 @@ Console.WriteLine(answer.Noul &gt;= <span class="hl">0.80</span> ? "C# policy: B
   mock maps High to 0.94 every time. Determinism is the feature. Your demo output will never surprise you.</p>
 </div>
 
-<h3>Level 02 - typed routing</h3>
+<h3 id="level02">Level 02 - typed routing <a class="runlive" href="http://127.0.0.1:5088/#level2" title="Open level 2 in the interactive demo UI">Run live</a></h3>
 
 <div class="code">
   <div class="code-head">output<div class="spacer"></div></div>
@@ -655,7 +685,7 @@ route: choice=<span class="warn">ask</span>, confidence=0.64 (answer=0.76)</code
 <p>The state is "Copilot proposes to install a new global CLI package and update PATH." The answer space
 is written out in advance as three named options with descriptions, so the model cannot invent a fourth.</p>
 
-<div class="notes">
+<div class="notes" data-level="2">
   <div class="label">Presenter note</div>
   <p>Contrast this explicitly with the code it replaces. The hand-written version is a ladder of
   <code>if (command.Contains("install")) ... else if (command.Contains("global")) ...</code> that nobody
@@ -672,7 +702,7 @@ is written out in advance as three named options with descriptions, so the model
   again at level 5, where it is exactly what fails the allow threshold.</p>
 </div>
 
-<h3>Level 03 - ordered risk</h3>
+<h3 id="level03">Level 03 - ordered risk <a class="runlive" href="http://127.0.0.1:5088/#level3" title="Open level 3 in the interactive demo UI">Run live</a></h3>
 
 <div class="code">
   <div class="code-head">output<div class="spacer"></div></div>
@@ -692,7 +722,7 @@ risk: score=<span class="warn">1.56</span>, confidence=0.84 (answer=0.88)</code>
 3  Destructive, system-wide, credential-sensitive, or difficult to reverse.</code></pre>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="3">
   <div class="label">Presenter note</div>
   <p>The key difference from Choice: a Score is <em>ordered</em>, so arithmetic on it is meaningful.
   You can say "escalate above 2.0" or "average the scores of the five files in this PR." You cannot
@@ -706,7 +736,7 @@ risk: score=<span class="warn">1.56</span>, confidence=0.84 (answer=0.88)</code>
   rollback' and 'broad change'" instead of a bare number nobody can interpret six months later.</p>
 </div>
 
-<h3>Level 04 - parallel typed judgments</h3>
+<h3 id="level04">Level 04 - parallel typed judgments <a class="runlive" href="http://127.0.0.1:5088/#level4" title="Open level 4 in the interactive demo UI">Run live</a></h3>
 
 <div class="code">
   <div class="code-head">output<div class="spacer"></div></div>
@@ -753,7 +783,7 @@ routing=mock (no checkpoint loaded)</code></pre>
 <p>Laya also fills in a <code>routing</code> line that Jev has no equivalent for - which checkpoint
 answered and why. The mock prints a placeholder; step 11 shows the real one.</p>
 
-<div class="notes">
+<div class="notes" data-level="4">
   <div class="label">Presenter note</div>
   <p>Three different question types, three different answer types, <em>one</em> request and one state.
   This matters for two practical reasons: latency (one round trip instead of three) and coherence (all
@@ -769,7 +799,7 @@ answered and why. The mock prints a placeholder; step 11 shows the real one.</p>
   <code>route</code>, <code>risk</code>), not after the model.</p>
 </div>
 
-<h2 id="step4"><span class="stepnum">4</span>Level 5: code owns the policy</h2>
+<h2 id="step4"><span class="stepnum">4</span>Level 5: code owns the policy <a class="runlive" href="http://127.0.0.1:5088/#level5" title="Open level 5 in the interactive demo UI">Run level 5 live</a></h2>
 
 <p>This is the hinge of the whole tutorial. Level 5 introduces
 <a href="../src/Jev.Core/CopilotToolGate.cs"><code>CopilotToolGate</code></a>, the class that levels 8, 9,
@@ -860,7 +890,7 @@ bash     -&gt; <span class="warn">Ask</span>   | <span class="hl">Laya</span> di
 bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a destructive command pattern.</code></pre>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
   <p>Walk the middle row of the table arithmetically, out loud. It is the most convincing sixty seconds
   of the demo.</p>
@@ -896,7 +926,7 @@ wrong in <em>both</em> directions, which is why every rule is an anchored regex:
 </tbody>
 </table>
 
-<div class="notes">
+<div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
   <p>This table is the single best argument in the repo for writing security rules as code with tests
   rather than as a list of strings in a config file. Four of these five rows are false positives that a
@@ -953,7 +983,7 @@ wrong in <em>both</em> directions, which is why every rule is an anchored regex:
 above are the provider suite: they pin that selecting Laya changes the endpoint, the credentials and
 the <code>model</code> field, and changes <em>no gate decision at all</em>.</p>
 
-<div class="notes">
+<div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
   <p>Read one <code>PASS</code> from each half out loud. Every deterministic rule has a command that
   <em>must</em> match and a benign command that <em>must not</em>. That two-sided pinning is what makes
@@ -968,7 +998,7 @@ the <code>model</code> field, and changes <em>no gate decision at all</em>.</p>
   packages, which matters for the restricted-network story.</p>
 </div>
 
-<h2 id="step5"><span class="stepnum">5</span>Levels 8 and 9: the gate as a hook decision</h2>
+<h2 id="step5"><span class="stepnum">5</span>Levels 8 and 9: the gate as a hook decision <a class="runlive" href="http://127.0.0.1:5088/#level8" title="Open level 8 in the interactive demo UI">Run level 8 live</a> <a class="runlive" href="http://127.0.0.1:5088/#level9" title="Open level 9 in the interactive demo UI">Run level 9 live</a></h2>
 
 <p>Levels 8 and 9 run the same <code>CopilotToolGate</code> against payload-shaped inputs, so you can see
 hook decisions without starting Copilot.</p>
@@ -993,7 +1023,7 @@ hook decisions without starting Copilot.</p>
   Only the middle row, where Jev actually ran, carries a fractional confidence.</p>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="8 9">
   <div class="label">Presenter note</div>
   <p>The most interesting demonstration in this section is not in the default output. Run the same
   <code>edit</code> tool twice with different semantic content and show that the decision changes:</p>
@@ -1120,7 +1150,7 @@ Get-Content -Raw samples/hooks/edit.json | ./scripts/jev-hook.ps1</code></pre>
 </tbody>
 </table>
 
-<div class="notes">
+<div class="notes" data-level="8">
   <div class="label">Presenter note</div>
   <p>Point out that four of these ten samples are <em>regression</em> cases. They exist because an
   earlier, more naive version of the rule got them wrong. Each sample file even carries a
@@ -1217,7 +1247,7 @@ copilot</code></pre>
 <p>The older <code>JEV_MODE</code> name is still read when <code>DECISION_MODE</code> is unset, so an
 existing shell or <code>.env</code> keeps working rather than silently falling back to <code>off</code>.</p>
 
-<div class="notes">
+<div class="notes" data-level="8">
   <div class="label">Presenter note</div>
   <p>There are three failure-semantics facts in this section, and they are the most transferable content
   in the entire repository. Anyone building an agent hook needs all three.</p>
@@ -1260,7 +1290,7 @@ existing shell or <code>.env</code> keeps working rather than silently falling b
 <pre><code>{"permissionDecision":"deny","permissionDecisionReason":"Deterministic policy matched a destructive command pattern."}</code></pre>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="8">
   <div class="label">Presenter note</div>
   <p>"Exactly one JSON object" is not stylistic advice. Two objects printed back to back concatenate into
   invalid JSON and the whole decision is discarded. The adapter has a single <code>Emit</code> helper and
@@ -1275,7 +1305,7 @@ existing shell or <code>.env</code> keeps working rather than silently falling b
   "deterministic policy matched a destructive command pattern" gets understood.</p>
 </div>
 
-<h2 id="step8"><span class="stepnum">8</span>Levels 6 and 7: decisions as Agent Framework function tools</h2>
+<h2 id="step8"><span class="stepnum">8</span>Levels 6 and 7: decisions as Agent Framework function tools <a class="runlive" href="http://127.0.0.1:5088/#level6" title="Open level 6 in the interactive demo UI">Run level 6 live</a> <a class="runlive" href="http://127.0.0.1:5088/#level7" title="Open level 7 in the interactive demo UI">Run level 7 live</a></h2>
 
 <p>These levels need an authenticated GitHub Copilot CLI. They host Copilot as a Microsoft Agent
 Framework <code>AIAgent</code> and hand it the decision engine as ordinary function tools.</p>
@@ -1345,7 +1375,7 @@ cannot confuse them either:</p>
   which would muddy exactly the lesson the repo is trying to teach.</p>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="6 7">
   <div class="label">Presenter note</div>
   <p>The contrast between level 5 and level 6 is the one to draw here, because it is a genuine
   architectural fork rather than an incremental step.</p>
@@ -1364,7 +1394,7 @@ cannot confuse them either:</p>
   <code>--all --include-agent</code> it records a non-zero exit code and keeps going.</p>
 </div>
 
-<h2 id="step9"><span class="stepnum">9</span>Level 10, the skill, and the custom agent</h2>
+<h2 id="step9"><span class="stepnum">9</span>Level 10, the skill, and the custom agent <a class="runlive" href="http://127.0.0.1:5088/#level10" title="Open level 10 in the interactive demo UI">Run level 10 live</a></h2>
 
 <p>Level 10 removes the instruction to use Jev. The agent is told what Jev is good for and then asked a
 question where the right answer may well be "do not use Jev at all."</p>
@@ -1416,7 +1446,7 @@ question and call the appropriate tool; otherwise explain why not.</code></pre>
   <li>The repository <code>preToolUse</code> hook remains authoritative and must not be bypassed.</li>
 </ol>
 
-<div class="notes">
+<div class="notes" data-level="10">
   <div class="label">Presenter note</div>
   <p>Level 10 is the only level where "the agent chose not to use the tool" is a <em>passing</em> result.
   Say that before you run it, so the audience is watching for the right thing. A test-suite scoping
@@ -1994,7 +2024,7 @@ provider-specific code beyond the display name in its reason strings.</p>
   thing to show a person. Only policy is forbidden from reading it.</p>
 </div>
 
-<div class="notes">
+<div class="notes" data-level="9">
   <div class="label">Presenter note</div>
   <p>If you only have time for one slide about the provider work, make it this one, and frame it as a
   bug that was <em>designed out</em> rather than a feature that was added. The tempting

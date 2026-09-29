@@ -18,6 +18,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://127.0.0.1:5088");
 
 builder.Services.AddSingleton(new RepositoryContent(builder.Environment.ContentRootPath));
+builder.Services.AddSingleton<TutorialNotes>();
 builder.Services.AddSingleton<HookRunner>();
 builder.Services.AddSingleton<LevelCliRunner>();
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -28,15 +29,24 @@ WebApplication app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGet("/api/config", (RepositoryContent repository, HookRunner hook) => new ConfigResponse(
+app.MapGet("/api/config", (RepositoryContent repository, HookRunner hook, TutorialNotes notes) => new ConfigResponse(
     DecisionSession.Statuses(),
     DecisionSession.DefaultProvider,
     DecisionSession.DefaultMode,
     hook.Available,
     repository.CliAvailable,
+    notes.Available,
     repository.Root));
 
-app.MapGet("/api/levels", (RepositoryContent repository) => repository.Levels);
+app.MapGet("/api/levels", (RepositoryContent repository, TutorialNotes notes) =>
+    repository.Levels.Select(level => level with { Notes = notes.For(level.Number) }));
+
+// The tutorial is served from here, not opened off the filesystem, so its per-level "Run live"
+// links and this page's links back into it are same-origin and survive being sent to someone.
+app.MapGet("/tutorial", (RepositoryContent repository) =>
+    repository.Read(TutorialNotes.TutorialPath) is { } html
+        ? Results.Content(html, "text/html; charset=utf-8")
+        : Results.NotFound());
 
 app.MapGet("/api/hook/samples", (RepositoryContent repository) => repository.HookSamples);
 

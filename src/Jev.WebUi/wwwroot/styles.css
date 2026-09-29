@@ -58,6 +58,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 }
 
 .brand { font-weight: 700; font-size: 14.5px; letter-spacing: -.01em; white-space: nowrap; }
+.topbar > .btn, .topbar > .field, .topbar > .statusdot { flex: none; }
 .brand span { color: var(--fg-muted); font-weight: 500; }
 .topbar .spacer { flex: 1; }
 
@@ -97,10 +98,16 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .btn-run:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); color: #fff; }
 .btn-ghost { background: transparent; }
 
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+
 .statusdot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-faint); flex: none; }
 .statusdot.ok { background: var(--allow); }
 .statusdot.warn { background: var(--ask); }
-.status-text { font-size: 12px; color: var(--fg-muted); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.status-text { font-size: 12px; color: var(--fg-muted); white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+
+/* On a narrow window the controls matter more than the sentence explaining them; the dot keeps
+   its title attribute, so the same text is still one hover away. */
+@media (max-width: 1240px) { .status-text { display: none; } }
 
 /* ------------------------------------------------------------------ shell */
 
@@ -345,6 +352,57 @@ table.grid tr:last-child td { border-bottom: 0; }
 .minibar.allow i { background: var(--allow); }
 .minibar.ask i { background: var(--ask); }
 .minibar.deny i { background: var(--deny); }
+
+/* --------------------------------------------------------- presenter notes */
+
+/* Same purple as the tutorial's note blocks, because they are literally the same paragraphs. */
+:root {
+  --note-bg: #f5f0fd; --note-border: #8957e5; --note-fg: #3a2a5e;
+}
+html[data-theme="dark"] {
+  --note-bg: #1b1630; --note-border: #a371f7; --note-fg: #d9cff2;
+}
+
+.notes-card {
+  border: 1px solid var(--note-border); border-left-width: 4px; border-radius: 11px;
+  background: var(--note-bg); color: var(--note-fg);
+  margin-bottom: 16px; overflow: hidden;
+}
+html[data-notes="off"] .notes-card { display: none; }
+
+.notes-card > .h {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 15px; border-bottom: 1px solid color-mix(in srgb, var(--note-border) 30%, transparent);
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--note-border);
+}
+.notes-card > .h .spacer { flex: 1; }
+.notes-card > .h .count { font-weight: 700; letter-spacing: .04em; opacity: .8; text-transform: none; }
+
+/* Capped so a level with five notes does not push its Run button a screen and a half down.
+   Levels with one or two notes never reach the cap and never scroll. */
+.notes-card > .body { max-height: 46vh; overflow-y: auto; }
+
+.pnote { padding: 12px 18px; font-size: 14.5px; line-height: 1.62; }
+.pnote + .pnote { border-top: 1px dashed color-mix(in srgb, var(--note-border) 30%, transparent); }
+.pnote > .src {
+  display: block; margin-bottom: 5px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: color-mix(in srgb, var(--note-fg) 62%, transparent);
+}
+.pnote > .src a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+.pnote > .src a:hover { color: var(--note-border); }
+.pnote p:first-of-type { margin-top: 0; }
+.pnote p:last-child, .pnote ul:last-child, .pnote ol:last-child { margin-bottom: 0; }
+.pnote p { margin: .6em 0; }
+.pnote ul, .pnote ol { padding-left: 22px; margin: .5em 0; }
+.pnote li { margin: .25em 0; }
+.pnote code {
+  font-family: var(--mono); font-size: .875em;
+  background: color-mix(in srgb, var(--note-border) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--note-border) 32%, transparent);
+  padding: .1em .35em; border-radius: 5px;
+}
+html[data-present="on"] .pnote { font-size: 16px; }
 
 /* -------------------------------------------------------------- code panes */
 

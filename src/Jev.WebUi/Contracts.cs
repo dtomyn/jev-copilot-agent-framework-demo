@@ -17,6 +17,7 @@ public sealed record ConfigResponse(
     string DefaultMode,
     bool HookAvailable,
     bool CliAvailable,
+    bool TutorialAvailable,
     string RepositoryRoot);
 
 public sealed record SourceFile(string Path, string Language, string Text);
@@ -27,7 +28,15 @@ public sealed record LevelInfo(
     string Summary,
     bool RequiresCopilot,
     string Cli,
-    IReadOnlyList<SourceFile> Sources);
+    IReadOnlyList<SourceFile> Sources)
+{
+    /// <summary>
+    /// Presenter notes for this level, read out of <c>docs/tutorial.html</c>. Attached by the
+    /// endpoint rather than by <see cref="RepositoryContent"/>, which knows nothing about the
+    /// tutorial and should not have to.
+    /// </summary>
+    public IReadOnlyList<TutorialNote> Notes { get; init; } = [];
+}
 
 public sealed record ChoiceOption(string Key, string? Description);
 

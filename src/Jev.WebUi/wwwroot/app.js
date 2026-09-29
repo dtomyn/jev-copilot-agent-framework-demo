@@ -91,13 +91,16 @@
   function initChrome() {
     let theme = 'light';
     let present = 'off';
+    let notes = 'on';
     try {
       theme = localStorage.getItem('jev-theme') || 'light';
       present = localStorage.getItem('jev-present') || 'off';
+      notes = localStorage.getItem('jev-notes') || 'on';
     } catch (_) { /* ignore */ }
 
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-present', present);
+    document.documentElement.setAttribute('data-notes', notes);
 
     const themeButton = document.getElementById('theme-toggle');
     themeButton.textContent = theme === 'dark' ? 'Light' : 'Dark';
@@ -113,6 +116,20 @@
       const next = document.documentElement.getAttribute('data-present') === 'on' ? 'off' : 'on';
       applyPreference('jev-present', 'data-present', next);
       presentButton.setAttribute('aria-pressed', String(next === 'on'));
+    });
+
+    // Mirrors the tutorial's own "Presenter notes" button, down to hiding rather than removing:
+    // the notes stay in the DOM so toggling them back mid-sentence costs nothing.
+    const notesButton = document.getElementById('notes-toggle');
+    function paintNotesButton(value) {
+      notesButton.textContent = 'Notes: ' + value;
+      notesButton.setAttribute('aria-pressed', String(value === 'on'));
+    }
+    paintNotesButton(notes);
+    notesButton.addEventListener('click', () => {
+      const next = document.documentElement.getAttribute('data-notes') === 'on' ? 'off' : 'on';
+      applyPreference('jev-notes', 'data-notes', next);
+      paintNotesButton(next);
     });
 
     document.getElementById('provider-seg').addEventListener('click', event => {
@@ -163,6 +180,7 @@
     text.textContent = state.mode === 'live'
       ? (status ? status.liveHint : '')
       : (status && status.name ? status.name : '') + ' mock: deterministic, offline, no key needed.';
+    dot.title = text.textContent;
   }
 
   // ------------------------------------------------------------------- rail
@@ -262,6 +280,46 @@
     card.appendChild(tabs);
     card.appendChild(wrap);
     show(0);
+    return card;
+  }
+
+  /**
+   * The presenter notes for one level, as written in docs/tutorial.html. The HTML comes from a
+   * file in this repository, already stripped of scripts and event handlers by the server, and
+   * is inserted as markup so the notes keep their code spans and lists.
+   */
+  function notesCard(level) {
+    if (!level.notes || level.notes.length === 0) {
+      return null;
+    }
+
+    const body = h('div', { class: 'body' });
+    const card = h('div', { class: 'notes-card' }, [
+      h('div', { class: 'h' }, [
+        document.createTextNode('Presenter notes'),
+        h('span', { class: 'spacer' }),
+        h('span', { class: 'count', text: level.notes.length === 1 ? '1 note' : level.notes.length + ' notes' })
+      ]),
+      body
+    ]);
+
+    for (const note of level.notes) {
+      const source = h('span', { class: 'src' });
+      if (note.anchor) {
+        source.appendChild(h('a', {
+          href: '/tutorial#' + note.anchor,
+          target: '_blank',
+          rel: 'noopener',
+          title: 'Open this section of the tutorial',
+          text: note.section
+        }));
+      } else {
+        source.appendChild(document.createTextNode(note.section));
+      }
+
+      body.appendChild(h('div', { class: 'pnote' }, [source, h('div', { html: note.html })]));
+    }
+
     return card;
   }
 
@@ -1100,6 +1158,11 @@
       h('h1', { text: level.name }),
       h('p', { text: level.summary })
     ]));
+
+    const notes = notesCard(level);
+    if (notes) {
+      main.appendChild(notes);
+    }
 
     const scenario = SCENARIOS[level.number];
     let panel;

@@ -69,6 +69,8 @@ The native hook is the right place to demonstrate enforcement because it partici
 - Level 8 posts to `/api/hook/run`, which starts `Jev.CopilotHook` as a child process with the payload on stdin. Nothing is simulated: the panel shows the raw stdout, the exit code, and whether the "exit 0 and exactly one JSON object" contract held. Calling the gate in-process and formatting the result to look like hook output would hide precisely the failure modes levels 8 and 9 are about.
 - Levels 6, 7 and 10 post to `/api/tool` for a single function-tool call, and stream `/api/cli/stream` for a full agent run, which spawns `dotnet run --project src/TenLevels.Jev`.
 
+The written tutorial is not a separate artefact. `TutorialNotes` parses `docs/tutorial.html`, collects every `<div class="notes" data-level="...">` block, and indexes it by level, so the UI's presenter notes and the tutorial's are the same paragraphs. The UI also serves the tutorial at `/tutorial`, which makes the links in both directions same-origin: a note in the UI links to the section it came from, and each level section in the tutorial carries a deep link into the corresponding level panel. The `data-level` attribute is the only coupling, and a block without one simply does not appear in the UI.
+
 Two constraints shape the project. It must not reference `TenLevels.Jev`, because that project downloads the Copilot CLI from npm at build time and the UI is what a presenter starts first; the Copilot-backed levels are therefore reached by spawning the CLI rather than linking to it. And the level catalogue is parsed out of the `ILevelDemo` implementations at runtime, including their full source text, so the code on screen is the code on disk and a renamed level renames itself.
 
 ## Policy layering
