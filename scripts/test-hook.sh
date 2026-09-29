@@ -9,7 +9,7 @@ status=0
 for sample in samples/hooks/*.json; do
   name="$(basename "$sample" .json)"
   expected="$(grep -o '"expectedDecision":"[a-z]*"' "$sample" | cut -d'"' -f4)"
-  actual="$(JEV_MODE=mock ./scripts/jev-hook.sh < "$sample")"
+  actual="$(DECISION_MODE=mock ./scripts/jev-hook.sh < "$sample")"
   decision="$(printf '%s' "$actual" | grep -o '"permissionDecision":"[a-z]*"' | cut -d'"' -f4)"
   if [ -n "$expected" ] && [ "$expected" != "$decision" ]; then
     echo "FAIL  $name: expected $expected, got $decision -> $actual" >&2

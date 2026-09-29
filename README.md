@@ -1,6 +1,8 @@
-# Ten Levels of Jev for .NET + GitHub Copilot
+# Ten Levels of Typed Decisions for .NET + GitHub Copilot
 
-A .NET-first learning repo that starts with a single Jev probability and ends with Jev embedded in a GitHub Copilot coding-agent workflow.
+A .NET-first learning repo that starts with a single System-One probability and ends with that decision engine embedded in a GitHub Copilot coding-agent workflow.
+
+Two engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted, and **[Laya](https://github.com/NandhaKishorM/laya)**, open source and run locally in Docker. `laya-serve` speaks the same `POST /v1/systemone` wire protocol, so one client and one set of DTOs serve both; see [`docs/LAYA.md`](docs/LAYA.md).
 
 The structure is deliberately inspired by [`disler/ten-levels-of-jev`](https://github.com/disler/ten-levels-of-jev/tree/main/apps/ten-levels): each level adds one idea, the early levels run without a coding agent, and the later levels let the coding agent decide when Jev is useful. The Microsoft Agent Framework direction is informed by [`rwjdk/agent-framework-samples`](https://github.com/rwjdk/agent-framework-samples/tree/main/src/JevClassification), but this repo is an original implementation rather than a source port.
 
@@ -18,6 +20,7 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 │   └── copilot-instructions.md
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── LAYA.md                          # running the demo against local open-source Laya
 │   ├── LEVELS.md
 │   ├── SECURITY.md
 │   ├── SOURCES.md
@@ -26,9 +29,11 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 ├── scripts/
 │   ├── bootstrap.sh / bootstrap.ps1
 │   ├── jev-hook.sh / jev-hook.ps1
+│   ├── laya-up.sh / laya-up.ps1         # start/stop the local Laya container
+│   ├── laya-down.sh / laya-down.ps1
 │   └── test-hook.sh / test-hook.ps1
 ├── src/
-│   ├── Jev.Core/                        # typed Jev client + mock + risk rules + policy gate
+│   ├── Jev.Core/                        # typed System-One client + mock + risk rules + policy gate
 │   ├── Jev.CopilotHook/                 # stdin/stdout Copilot hook adapter
 │   └── TenLevels.Jev/                   # levels 01-10
 ├── tests/Jev.Core.SelfTests/            # dependency-free smoke tests
@@ -41,25 +46,28 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 
 | Level | Name | What changes |
 |---:|---|---|
-| 01 | The smart if-statement | One Jev Noul probability drives an ordinary C# branch. |
+| 01 | The smart if-statement | One Noul probability drives an ordinary C# branch. |
 | 02 | Typed routing | A bounded Choice replaces fuzzy routing logic. |
 | 03 | Ordered risk | A Score rates state against an explicit ordered rubric. |
 | 04 | Parallel typed judgments | Noul, Choice, and Score share one state/request. |
-| 05 | Code owns the policy | Deterministic hard rules and code-owned confidence thresholds wrap Jev. |
-| 06 | Jev becomes a Copilot tool | Microsoft Agent Framework exposes one Jev function to a GitHub Copilot-backed `AIAgent`. |
-| 07 | Copilot gets the Jev toolbelt | Copilot receives Noul, Choice, and Score function tools. |
+| 05 | Code owns the policy | Deterministic hard rules and code-owned confidence thresholds wrap the model. |
+| 06 | The decision engine becomes a Copilot tool | Microsoft Agent Framework exposes one decision function to a GitHub Copilot-backed `AIAgent`. |
+| 07 | Copilot gets the decision toolbelt | Copilot receives Noul, Choice, and Score function tools. |
 | 08 | Native Copilot `preToolUse` hook | The same gate is wired into `.github/hooks/jev-policy.json`. |
 | 09 | Confidence-aware escalation | Safe reads can pass, hard hazards deny, ambiguity becomes Copilot's human `ask` flow. |
-| 10 | The agent reaches for Jev itself | Copilot decides whether a bounded Jev primitive is useful; the repo skill teaches the same behavior in native CLI sessions. |
+| 10 | The agent reaches for the engine itself | Copilot decides whether a bounded typed primitive is useful; the repo skill teaches the same behavior in native CLI sessions. |
 
 See [`docs/LEVELS.md`](docs/LEVELS.md) for the rationale.
 For a guided, command-by-command walkthrough with presenter notes, open [`docs/tutorial.html`](docs/tutorial.html) in a browser.
 
 ## Prerequisites
 
-For Levels 1-5, 8, and 9 you only need the **.NET 10 SDK** (pinned by `global.json`). They work with the deterministic local Jev mock and need no API key.
+For Levels 1-5, 8, and 9 you only need the **.NET 10 SDK** (pinned by `global.json`). They work with the deterministic local mock and need no API key and no container.
 
-For live Jev, set a TypeSafe API key in `TYPESAFE_API_KEY`. The client sends `POST https://api.typesafe.ai/v1/systemone` and defaults to `JEV_MODEL=jev-latest`.
+For a live decision engine, pick one:
+
+- **Laya (open source, local).** Run `./scripts/laya-up.ps1` (or `.sh`) to start `laya-serve` in Docker, then use `--provider laya --mode live`. No API key. Full instructions, including what differs from Jev, are in [`docs/LAYA.md`](docs/LAYA.md).
+- **Jev (hosted).** Set a TypeSafe API key in `TYPESAFE_API_KEY` and use `--provider jev --mode live`. The client sends `POST https://api.typesafe.ai/v1/systemone` and defaults to `JEV_MODEL=jev-latest`.
 
 For Levels 6, 7, and 10, install and authenticate **GitHub Copilot CLI**. The repo pins `Microsoft.Agents.AI.GitHub.Copilot` 1.22.0 and uses `CopilotClient.AsAIAgent(...)` from Microsoft Agent Framework.
 
@@ -99,47 +107,55 @@ List levels:
 dotnet run --project src/TenLevels.Jev -- --list
 ```
 
-Run one level with deterministic mock Jev:
+Run one level against the deterministic mock:
 
 ```bash
-dotnet run --project src/TenLevels.Jev -- --level 5 --jev mock
+dotnet run --project src/TenLevels.Jev -- --level 5 --mode mock
 ```
 
 Run all non-Copilot levels:
 
 ```bash
-dotnet run --project src/TenLevels.Jev -- --all --jev mock
+dotnet run --project src/TenLevels.Jev -- --all --mode mock
 ```
 
-Run with the real Jev API:
+Run against a local Laya container (after `./scripts/laya-up.sh`):
+
+```bash
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live
+```
+
+Run against the hosted Jev API:
 
 ```bash
 export TYPESAFE_API_KEY="..."
-dotnet run --project src/TenLevels.Jev -- --level 4 --jev live
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live
 ```
 
 PowerShell equivalent:
 
 ```powershell
 $env:TYPESAFE_API_KEY = "..."
-dotnet run --project src/TenLevels.Jev -- --level 4 --jev live
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live
 ```
+
+`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, and to `jev` otherwise. `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
 
 ## Run the Microsoft Agent Framework + Copilot levels
 
 Once GitHub Copilot CLI is installed and authenticated:
 
 ```bash
-dotnet run --project src/TenLevels.Jev -- --level 6 --jev mock
-dotnet run --project src/TenLevels.Jev -- --level 7 --jev mock
-dotnet run --project src/TenLevels.Jev -- --level 10 --jev mock
+dotnet run --project src/TenLevels.Jev -- --level 6 --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 7 --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 10 --mode mock
 ```
 
-Use `--jev live` instead after setting `TYPESAFE_API_KEY`.
+Use `--mode live` instead, with whichever `--provider` you configured.
 
-These examples deliberately give the Agent Framework agent only Jev function tools. They do **not** grant its built-in shell/file/URL permissions. That keeps the lesson focused and prevents the MAF sample from becoming a second, hidden execution-policy surface.
+These examples deliberately give the Agent Framework agent only decision function tools. They do **not** grant its built-in shell/file/URL permissions. That keeps the lesson focused and prevents the MAF sample from becoming a second, hidden execution-policy surface.
 
-One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The gate therefore treats those three as non-mutating, after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own Jev calls and levels 6, 7, and 10 fail with a fail-closed hook error.
+One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*` spelling appears too, and the gate treats all six as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
 
 ## Run the native GitHub Copilot CLI hook
 
@@ -154,14 +170,14 @@ Choose a mode **before starting/restarting Copilot CLI**, because repository hoo
 macOS/Linux:
 
 ```bash
-export JEV_MODE=mock
+export DECISION_MODE=mock
 copilot
 ```
 
 PowerShell:
 
 ```powershell
-$env:JEV_MODE = "mock"
+$env:DECISION_MODE = "mock"
 copilot
 ```
 
@@ -170,32 +186,40 @@ Try prompts that cause a read, a repository edit/package change, and an obviousl
 ```text
 allow  -> low-risk/read-only fast path or high-confidence low risk
 ask    -> ambiguous/consequential mutation; Copilot asks the person
-deny   -> deterministic hard hazard or sufficiently strong Jev unsafe classification
+deny   -> deterministic hard hazard or sufficiently strong unsafe classification from the model
 ```
 
-### Live Jev hook
+### Live hook, local Laya
 
 macOS/Linux:
 
 ```bash
-export JEV_MODE=live
-export TYPESAFE_API_KEY="..."
+./scripts/laya-up.sh
+export DECISION_PROVIDER=laya DECISION_MODE=live LAYA_BASE_URL=http://127.0.0.1:8010
 copilot
 ```
 
 PowerShell:
 
 ```powershell
-$env:JEV_MODE = "live"
-$env:TYPESAFE_API_KEY = "..."
+./scripts/laya-up.ps1
+$env:DECISION_PROVIDER = "laya"; $env:DECISION_MODE = "live"; $env:LAYA_BASE_URL = "http://127.0.0.1:8010"
 copilot
 ```
 
-### No Jev network call
+### Live hook, hosted Jev
 
-`JEV_MODE=off` is the hook default. In that mode, deterministic hard-deny rules still apply, known read-only tools still pass, and other mutations become `ask`.
+```bash
+export DECISION_PROVIDER=jev DECISION_MODE=live
+export TYPESAFE_API_KEY="..."
+copilot
+```
 
-`JEV_MODE=auto` uses live Jev only when `TYPESAFE_API_KEY` is present; otherwise it behaves like `off`.
+### No network call at all
+
+`DECISION_MODE=off` is the hook default. In that mode, deterministic hard-deny rules still apply, known read-only tools still pass, and other mutations become `ask`.
+
+`DECISION_MODE=auto` goes live only when the selected provider is configured (a key for Jev, a base URL for Laya); otherwise it behaves like `off`. The earlier `JEV_MODE` name is still read when `DECISION_MODE` is unset.
 
 ## Test the hook without starting Copilot
 
@@ -221,6 +245,7 @@ PASS  force-push           -> deny
 PASS  force-with-lease     -> ask
 PASS  jev-tool-with-secret -> ask
 PASS  jev-tool             -> allow
+PASS  laya-tool            -> allow
 PASS  read                 -> allow
 PASS  secret-read          -> ask
 ```
@@ -228,13 +253,13 @@ PASS  secret-read          -> ask
 Or pipe an individual sample payload:
 
 ```bash
-JEV_MODE=mock ./scripts/jev-hook.sh < samples/hooks/edit.json
+DECISION_MODE=mock ./scripts/jev-hook.sh < samples/hooks/edit.json
 ```
 
 The hook writes exactly one final JSON decision object to stdout, for example:
 
 ```json
-{"permissionDecision":"ask","permissionDecisionReason":"Jev did not clear the confidence threshold; require human approval."}
+{"permissionDecision":"ask","permissionDecisionReason":"Laya did not clear the confidence threshold; require human approval."}
 ```
 
 ## Use the Copilot skill and custom agent
@@ -251,17 +276,19 @@ The agent profile does not pre-approve shell access. The repository hook remains
 
 ## Why the policy is split this way
 
-Jev is useful here for **semantic uncertainty**: "is this action security-sensitive?", "which bounded route best fits?", or "where on this explicit risk rubric does this land?" It should not replace facts that C# code, Git, a parser, a compiler, or tests can determine exactly.
+A System-One model is useful here for **semantic uncertainty**: "is this action security-sensitive?", "which bounded route best fits?", or "where on this explicit risk rubric does this land?" It should not replace facts that C# code, Git, a parser, a compiler, or tests can determine exactly.
 
 So `CopilotToolGate` applies layers in this order:
 
 1. deterministic hard-deny patterns for explicitly destructive commands;
 2. a deterministic read-only fast path;
-3. optional Jev `Choice(allow, ask, deny)` classification;
+3. optional `Choice(allow, ask, deny)` classification by the selected provider;
 4. explicit code-owned probability/confidence thresholds;
 5. human `ask` for everything that does not clear the threshold.
 
-The important design principle is **Jev advises; code authorizes**.
+The important design principle is **the model advises; code authorizes**.
+
+Step 4 gates on `max(p)` and never on the provider's own `confidence` field, because the two engines define that field differently: Jev as `(n*p_max - 1)/(n - 1)`, Laya as normalized entropy. A threshold carried across would silently loosen or tighten. See [`docs/LAYA.md`](docs/LAYA.md).
 
 ## Hook failure semantics you should know
 
@@ -271,11 +298,11 @@ GitHub's current Copilot hook contract matters for security design:
 - A hook **timeout is fail-open to Copilot's normal permission flow**, not an automatic deny.
 - Under Copilot cloud agent there is no person to answer `ask`, so `ask` is treated as `deny`.
 
-Because a timeout is the one failure mode that fails open, the hook enforces its **own** deadline (`JEV_HOOK_DEADLINE_MS`, default 4000 ms) below the hook's `timeoutSec` of 8, so a slow decision returns an explicit `ask` instead of letting Copilot fall back to its default flow. The live Jev HTTP call is additionally capped at two seconds, and ordinary Jev/client exceptions become an explicit `ask` with exit code zero. See [`docs/SECURITY.md`](docs/SECURITY.md) before adapting the pattern to production.
+Because a timeout is the one failure mode that fails open, the hook enforces its **own** deadline (`DECISION_HOOK_DEADLINE_MS`, default 4000 ms) below the hook's `timeoutSec` of 8, so a slow decision returns an explicit `ask` instead of letting Copilot fall back to its default flow. The live HTTP call is additionally capped at two seconds - which matters most on a cold Laya container, whose first request loads a checkpoint - and ordinary provider/client exceptions become an explicit `ask` with exit code zero. See [`docs/SECURITY.md`](docs/SECURITY.md) before adapting the pattern to production.
 
-## Jev API shape used here
+## Wire shape used here
 
-The TypeSafe API accepts one `state`, a model name, and named typed questions. This repo implements the three primitives used by the current API:
+Both providers accept one `state`, an optional model name, and named typed questions at `POST /v1/systemone`. This repo implements the three primitives:
 
 ```json
 {
@@ -304,7 +331,7 @@ The TypeSafe API accepts one `state`, a model name, and named typed questions. T
 }
 ```
 
-The client is intentionally tiny and lives in `src/Jev.Core/JevHttpClient.cs`, so the wire contract is easy to inspect.
+The `model` field is omitted for Laya, which lets its router pick a checkpoint per request and report the choice back in a `routing` block. The client is intentionally tiny and lives in [`src/Jev.Core/SystemOneHttpClient.cs`](src/Jev.Core/SystemOneHttpClient.cs), so the wire contract is easy to inspect.
 
 ## Suggested demo script
 
@@ -312,17 +339,19 @@ For a 10-15 minute walkthrough:
 
 1. Run Levels 1-4 in mock mode to introduce Noul/Choice/Score and parallel questions.
 2. Run Level 5 to show that policy stays in C#.
-3. Run Level 7 with an authenticated Copilot runtime to show Jev as MAF function tools.
-4. Run `./scripts/test-hook.sh` to show the exact native `preToolUse` JSON contract.
-5. Start `JEV_MODE=mock copilot`, make Copilot inspect a file, edit a file, and propose a force push; point out `allow`, `ask`, and `deny`.
-6. End on Level 10 plus `/jev-decisions`: the agent learns when a fast typed decision is useful, without turning Jev into an unconstrained planner.
+3. Re-run Level 4 with `--provider laya --mode live` against the local container: same code, same DTOs, a different engine, and a visibly different `confidence` next to an identical `answer` confidence.
+4. Run Level 7 with an authenticated Copilot runtime to show the decision primitives as MAF function tools.
+5. Run `./scripts/test-hook.sh` to show the exact native `preToolUse` JSON contract.
+6. Start `DECISION_MODE=mock copilot`, make Copilot inspect a file, edit a file, and propose a force push; point out `allow`, `ask`, and `deny`.
+7. End on Level 10 plus `/jev-decisions`: the agent learns when a fast typed decision is useful, without turning the model into an unconstrained planner.
 
 ## Production hardening ideas
 
-This repo intentionally keeps the sample readable. The deterministic rules in `src/Jev.Core/RiskHeuristics.cs` are anchored regular expressions rather than substring tests, and each one is pinned by a self-test in both directions, but a regex still is not a shell parser: `rm $VAR` and base64-encoded payloads are outside its reach. Before using the pattern as organizational policy, consider signed/versioned policy distribution, real shell/command-line parsing, dedicated secret redaction, audit/event logging, latency and error telemetry, organization-specific allow/deny rules, sandboxing, policy tests derived from real tool traces, and a clear decision on whether a remote Jev call is permitted for the data being evaluated.
+This repo intentionally keeps the sample readable. The deterministic rules in `src/Jev.Core/RiskHeuristics.cs` are anchored regular expressions rather than substring tests, and each one is pinned by a self-test in both directions, but a regex still is not a shell parser: `rm $VAR` and base64-encoded payloads are outside its reach. Before using the pattern as organizational policy, consider signed/versioned policy distribution, real shell/command-line parsing, dedicated secret redaction, audit/event logging, latency and error telemetry, organization-specific allow/deny rules, sandboxing, policy tests derived from real tool traces, and a clear decision on whether a remote call is permitted for the data being evaluated - which is the strongest argument for the self-hosted Laya path. Thresholds here are illustrative: re-fit them against the provider and checkpoint you actually deploy.
 
 ## Sources and compatibility
 
-See [`docs/SOURCES.md`](docs/SOURCES.md). The implementation was checked against the GitHub Copilot CLI hook documentation, the GitHub Copilot skill/custom-agent documentation, the Microsoft Agent Framework GitHub Copilot provider docs, the current TypeSafe OpenAPI document, and the current NuGet package metadata while this demo was assembled in September 2026.
+See [`docs/SOURCES.md`](docs/SOURCES.md). The implementation was checked against the GitHub Copilot CLI hook documentation, the GitHub Copilot skill/custom-agent documentation, the Microsoft Agent Framework GitHub Copilot provider docs, the current TypeSafe OpenAPI document, Laya's HTTP API documentation and server source, and the current NuGet package metadata while this demo was assembled in September 2026.
 
-MIT licensed. This is an independent demo and is not an official TypeSafe, GitHub, or Microsoft project.
+MIT licensed. This is an independent demo and is not an official TypeSafe, Laya, GitHub, or Microsoft project.
+# jev-copilot-agent-framework-demo
