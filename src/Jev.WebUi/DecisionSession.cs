@@ -5,10 +5,9 @@ namespace Jev.WebUi;
 /// <summary>
 /// Turns the browser's two dropdowns, provider and mode, into an <see cref="IJevClient"/>.
 ///
-/// The UI picks per request rather than per process on purpose: a presenter switching from Laya
-/// to Jev, or from mock to live, mid-demo is the whole point of the selector, and the compelling
-/// claim (the same policy code, two engines) is only visible if both can be exercised back to
-/// back without a restart.
+/// The UI picks per request rather than per process on purpose: a presenter can switch among Laya,
+/// Decider, and Jev, or between mock and live, mid-demo. The same policy code can therefore be
+/// exercised against all three engines back to back without a restart.
 /// </summary>
 public static class DecisionSession
 {
@@ -49,7 +48,7 @@ public static class DecisionSession
     public static IJevClient Create(string? provider, string? mode, out string providerId, out string normalizedMode)
     {
         DecisionProvider resolved = ParseProvider(provider);
-        providerId = resolved == DecisionProvider.Laya ? "laya" : "jev";
+        providerId = SystemOneEndpoint.ProviderId(resolved);
         normalizedMode = NormalizeMode(mode);
 
         if (normalizedMode == "mock")
@@ -59,8 +58,8 @@ public static class DecisionSession
 
         try
         {
-            // Short, because a browser is waiting. A cold Laya container loading a checkpoint is
-            // far slower than this, and the resulting error says so rather than hanging the page.
+            // Short, because a browser is waiting. A cold local model container can take much
+            // longer to load than this; its startup scripts wait for /health before enabling live mode.
             return SystemOneHttpClient.FromEnvironment(resolved, TimeSpan.FromSeconds(20));
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
@@ -70,7 +69,7 @@ public static class DecisionSession
     }
 
     public static string DisplayName(DecisionProvider provider) =>
-        provider == DecisionProvider.Laya ? "Laya" : "Jev";
+        SystemOneEndpoint.ProviderDisplayName(provider);
 
     /// <summary>
     /// Whether live mode is configured for each provider, and what the presenter has to do about
@@ -79,6 +78,7 @@ public static class DecisionSession
     public static IReadOnlyList<ProviderStatus> Statuses()
     {
         bool layaLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Laya);
+        bool deciderLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Decider);
         bool jevLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Jev);
 
         return
@@ -90,6 +90,13 @@ public static class DecisionSession
                 layaLive
                     ? $"Live requests go to {Environment.GetEnvironmentVariable("LAYA_BASE_URL")}."
                     : "Set LAYA_BASE_URL and start laya-serve (scripts/laya-up.ps1) to enable live mode."),
+            new ProviderStatus(
+                "decider",
+                "Decider",
+                deciderLive,
+                deciderLive
+                    ? $"Live requests go to {Environment.GetEnvironmentVariable("DECIDER_BASE_URL")}."
+                    : "Set DECIDER_BASE_URL and start decider.serve (scripts/decider-up.ps1) to enable live mode."),
             new ProviderStatus(
                 "jev",
                 "Jev",

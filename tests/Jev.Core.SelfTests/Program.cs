@@ -57,7 +57,11 @@ await Check("host-registered decision tools are not treated as mutations", async
     // functions the host itself registered. Denying those breaks levels 6, 7, and 10. Both
     // provider prefixes must be allowed, because DecisionToolSet names its tools after the
     // provider the agent process was started with.
-    string[] tools = ["jev_noul", "jev_choice", "jev_score", "laya_noul", "laya_choice", "laya_score"];
+    string[] tools = [
+        "jev_noul", "jev_choice", "jev_score",
+        "laya_noul", "laya_choice", "laya_score",
+        "decider_noul", "decider_choice", "decider_score",
+    ];
     foreach (string tool in tools)
     {
         GateResult result = await Gate().EvaluateAsync(
@@ -235,7 +239,7 @@ await Check("ordinary source paths are not treated as credentials", () =>
 });
 
 // ---------------------------------------------------------------------------
-// Wire contract for POST /v1/systemone, which TypeSafe Jev and laya-serve both speak.
+// Wire contract for POST /v1/systemone, shared by TypeSafe Jev, laya-serve, and decider.serve.
 // ---------------------------------------------------------------------------
 
 await Check("question serialization emits the System-One type discriminator", () =>
@@ -365,7 +369,8 @@ await Check("environment selects laya and defaults to the local laya-serve conta
         ("DECISION_PROVIDER", "laya"),
         ("LAYA_BASE_URL", null),
         ("LAYA_API_KEY", null),
-        ("LAYA_MODEL", null));
+        ("LAYA_MODEL", null),
+        ("DECIDER_BASE_URL", null));
 
     SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
     Equal(DecisionProvider.Laya, endpoint.Provider);
@@ -384,7 +389,8 @@ await Check("LAYA_BASE_URL alone selects laya and is normalized with a trailing 
 {
     using var _ = new ScopedEnvironment(
         ("DECISION_PROVIDER", null),
-        ("LAYA_BASE_URL", "http://laya.internal:9000"));
+        ("LAYA_BASE_URL", "http://laya.internal:9000"),
+        ("DECIDER_BASE_URL", null));
 
     SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
     Equal(DecisionProvider.Laya, endpoint.Provider);
@@ -400,6 +406,7 @@ await Check("jev stays the default and still demands a key", () =>
     using var _ = new ScopedEnvironment(
         ("DECISION_PROVIDER", null),
         ("LAYA_BASE_URL", null),
+        ("DECIDER_BASE_URL", null),
         ("TYPESAFE_API_KEY", null));
 
     Equal(DecisionProvider.Jev, SystemOneEndpoint.ProviderFromEnvironment());
@@ -410,6 +417,7 @@ await Check("jev stays the default and still demands a key", () =>
     catch (InvalidOperationException ex)
     {
         Contains("DECISION_PROVIDER=laya", ex.Message);
+        Contains("DECISION_PROVIDER=decider", ex.Message);
         return Task.CompletedTask;
     }
 
@@ -462,6 +470,79 @@ await Check("a laya response contributes answer_confidence and routing", async (
     Equal("english (English Latin text)", response.Routing ?? string.Empty);
 });
 
+// ---------------------------------------------------------------------------
+// Decider: the same wire contract, with a server-selected model and x_p_max.
+// ---------------------------------------------------------------------------
+
+await Check("environment selects decider and defaults to the local decider container", () =>
+{
+    using var _ = new ScopedEnvironment(
+        ("DECISION_PROVIDER", "decider"),
+        ("DECIDER_BASE_URL", null));
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
+    Equal(DecisionProvider.Decider, endpoint.Provider);
+    Equal(SystemOneEndpoint.DefaultDeciderBaseAddress, endpoint.BaseAddress.ToString());
+    if (endpoint.ApiKey is not null || endpoint.Model is not null)
+    {
+        throw new InvalidOperationException($"Expected no key and no request model, got '{endpoint.ApiKey}' / '{endpoint.Model}'.");
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("DECIDER_BASE_URL alone selects decider and is normalized with a trailing slash", () =>
+{
+    using var _ = new ScopedEnvironment(
+        ("DECISION_PROVIDER", null),
+        ("LAYA_BASE_URL", null),
+        ("DECIDER_BASE_URL", "http://decider.internal:9001"));
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
+    Equal(DecisionProvider.Decider, endpoint.Provider);
+    Equal("http://decider.internal:9001/", endpoint.BaseAddress.ToString());
+    return Task.CompletedTask;
+});
+
+await Check("a decider request omits model and bearer token", async () =>
+{
+    var handler = new RecordingHandler(DeciderResponseBody(allow: 0.93, typeSafeConfidence: 0.895));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultDeciderBaseAddress) };
+    var client = new SystemOneHttpClient(http, DeciderEndpoint());
+
+    await client.DecideAsync("state", new Dictionary<string, JevQuestion>
+    {
+        ["permission"] = new ChoiceQuestion("route", new Dictionary<string, string?>
+        {
+            ["allow"] = null, ["ask"] = null, ["deny"] = null,
+        }),
+    });
+
+    Equal("v1/systemone", handler.RequestPath);
+    Equal(string.Empty, handler.Authorization);
+    if (handler.RequestBody.Contains("\"model\"", StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException($"Expected no model field, got {handler.RequestBody}");
+    }
+});
+
+await Check("a decider response uses x_p_max as answer confidence", async () =>
+{
+    var handler = new RecordingHandler(DeciderResponseBody(allow: 0.93, typeSafeConfidence: 0.895));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultDeciderBaseAddress) };
+    using var client = new SystemOneHttpClient(http, DeciderEndpoint());
+
+    SystemOneResponse response = await client.DecideAsync("state", new Dictionary<string, JevQuestion>
+    {
+        ["permission"] = new ChoiceQuestion("route", new Dictionary<string, string?> { ["allow"] = null }),
+    });
+
+    var answer = (ChoiceAnswer)response.Answers["permission"];
+    Equal(0.895, answer.Confidence);
+    Equal(0.93, answer.AnswerConfidence);
+    Equal("decider-v2.1", response.Model);
+});
+
 await Check("the gate thresholds on max(p), not on the provider's confidence field", async () =>
 {
     // Laya's `confidence` is normalized entropy, so a decisive answer can report a low value. A
@@ -505,10 +586,11 @@ await Check("switching provider does not change a single gate decision in mock m
     {
         GateResult jevResult = await Gate(DecisionProvider.Jev).EvaluateAsync(tool, arguments);
         GateResult layaResult = await Gate(DecisionProvider.Laya).EvaluateAsync(tool, arguments);
-        if (jevResult.Decision != layaResult.Decision)
+        GateResult deciderResult = await Gate(DecisionProvider.Decider).EvaluateAsync(tool, arguments);
+        if (jevResult.Decision != layaResult.Decision || jevResult.Decision != deciderResult.Decision)
         {
             throw new InvalidOperationException(
-                $"{tool}: jev said {jevResult.Decision}, laya said {layaResult.Decision}.");
+                $"{tool}: jev said {jevResult.Decision}, laya said {layaResult.Decision}, decider said {deciderResult.Decision}.");
         }
     }
 });
@@ -529,11 +611,15 @@ await Check("the mock reproduces each provider's own confidence definition", asy
         .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
     var layaAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Laya)
         .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
+    var deciderAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Decider)
+        .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
 
     // Same distribution, so the same max(p) and therefore the same policy outcome...
     Equal(jevAnswer.AnswerConfidence, layaAnswer.AnswerConfidence);
+    Equal(jevAnswer.AnswerConfidence, deciderAnswer.AnswerConfidence);
 
-    // ...but two different reported `confidence` values, which is the trap this repo gates around.
+    // Decider Choice follows TypeSafe's confidence formula, while Laya deliberately differs.
+    Equal(jevAnswer.Confidence, deciderAnswer.Confidence);
     if (Math.Abs(jevAnswer.Confidence - layaAnswer.Confidence) < 0.01)
     {
         throw new InvalidOperationException(
@@ -595,6 +681,9 @@ static SystemOneEndpoint JevEndpoint(string? apiKey, string? model) =>
 static SystemOneEndpoint LayaEndpoint(string? apiKey, string? model) =>
     new(DecisionProvider.Laya, new Uri(SystemOneEndpoint.DefaultLayaBaseAddress), apiKey, model);
 
+static SystemOneEndpoint DeciderEndpoint() =>
+    new(DecisionProvider.Decider, new Uri(SystemOneEndpoint.DefaultDeciderBaseAddress), apiKey: null, model: null);
+
 // A laya-serve answer: the Jev-shaped body plus `answer_confidence`, `action` and `routing`.
 static string LayaResponseBody(double allow, double entropyConfidence)
 {
@@ -617,6 +706,29 @@ static string LayaResponseBody(double allow, double entropyConfidence)
           },
           "usage": {"input_tokens": 74, "output_tokens": 0},
           "routing": {"model": "english", "repo": "convaiinnovations/laya", "reason": "English Latin text"}
+        }
+        """;
+}
+
+// A decider.serve answer. x_p_max is the cross-provider max(p) used by policy; confidence is
+// TypeSafe-compatible display metadata and is intentionally kept separate.
+static string DeciderResponseBody(double allow, double typeSafeConfidence)
+{
+    double rest = Math.Round((1 - allow) / 2, 4);
+    string choice = allow >= rest ? "allow" : "ask";
+    static string Number(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+
+    return $$"""
+        {
+          "model": "decider-v2.1",
+          "answers": {
+            "permission": {"type": "choice", "choice": "{{choice}}",
+              "probabilities": {"allow": {{Number(allow)}}, "ask": {{Number(rest)}}, "deny": {{Number(rest)}}},
+              "confidence": {{Number(typeSafeConfidence)}}, "x_p_max": {{Number(Math.Max(allow, rest))}},
+              "certainty": 0.8
+            }
+          },
+          "usage": {"input_tokens": 74, "output_tokens": 0}
         }
         """;
 }

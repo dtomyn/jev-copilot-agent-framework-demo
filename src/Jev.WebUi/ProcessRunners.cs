@@ -27,7 +27,7 @@ public sealed class HookRunner(RepositoryContent repository)
         }
 
         string payload = string.IsNullOrWhiteSpace(request.Payload) ? "{}" : request.Payload;
-        string provider = DecisionSession.ParseProvider(request.Provider) == Jev.Core.DecisionProvider.Laya ? "laya" : "jev";
+        string provider = Jev.Core.SystemOneEndpoint.ProviderId(DecisionSession.ParseProvider(request.Provider));
 
         // 'off' is a hook-only mode with no equivalent in the levels: deterministic rules only,
         // every other mutation escalated. It is worth demonstrating, so it is accepted here even
@@ -178,7 +178,7 @@ public sealed class LevelCliRunner(RepositoryContent repository)
         Func<string, string, Task> emit,
         CancellationToken cancellationToken)
     {
-        string resolvedProvider = DecisionSession.ParseProvider(provider) == Jev.Core.DecisionProvider.Laya ? "laya" : "jev";
+        string resolvedProvider = Jev.Core.SystemOneEndpoint.ProviderId(DecisionSession.ParseProvider(provider));
         string resolvedMode = DecisionSession.NormalizeMode(mode);
 
         var startInfo = new ProcessStartInfo("dotnet")

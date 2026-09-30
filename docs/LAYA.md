@@ -3,7 +3,7 @@
 [Laya](https://github.com/NandhaKishorM/laya) is an open-source, non-autoregressive System 1 decision engine.
 It answers the same three typed primitives this demo is built on - `noul`, `choice`, and `score` - in a single forward pass, and its HTTP server `laya-serve` deliberately speaks the TypeSafe Jev `POST /v1/systemone` wire protocol.
 
-That compatibility is why this repository supports both engines with one client and one set of DTOs.
+That compatibility is why this repository supports Jev and Laya with one client and one set of DTOs. The same client also supports Decider; see [DECIDER.md](DECIDER.md) for that provider.
 `src/Jev.Core/SystemOneHttpClient.cs` is provider-agnostic; everything that differs between the two lives in `SystemOneEndpoint` (`src/Jev.Core/DecisionProviders.cs`).
 
 ## Choosing a provider

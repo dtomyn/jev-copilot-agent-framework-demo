@@ -15,8 +15,8 @@ public static class DemoEndpoints
 
     /// <summary>
     /// Levels 1 to 4: ask one provider a set of typed questions about one state and return
-    /// everything the response carries, including the two different confidence numbers and
-    /// Laya's routing block.
+    /// everything the response carries, including the provider confidence, provider-independent answer confidence, and any
+    /// provider-specific routing metadata.
     /// </summary>
     public static async Task<DecideResponse> DecideAsync(DecideRequest request, CancellationToken cancellationToken)
     {
@@ -56,7 +56,7 @@ public static class DemoEndpoints
 
             // The body that goes to POST /v1/systemone, so the wire contract is on screen next to
             // the answer. `model` is omitted here for the same reason the client omits it: a null
-            // model is how a Laya request asks the router to choose.
+            // model is how Laya asks its router to choose and how Decider keeps the model server-selected.
             JsonSerializer.Serialize(new { state = request.State, questions }, WireJson),
             elapsed);
     }
@@ -116,7 +116,7 @@ public static class DemoEndpoints
     {
         IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out _, out string mode);
         using IDisposable? lifetime = client as IDisposable;
-        string prefix = client.Provider == DecisionProvider.Laya ? "laya" : "jev";
+        string prefix = SystemOneEndpoint.ProviderId(client.Provider);
         string kind = (request.Tool ?? string.Empty).Trim().ToLowerInvariant();
         IReadOnlyList<string> options = request.Options ?? [];
 

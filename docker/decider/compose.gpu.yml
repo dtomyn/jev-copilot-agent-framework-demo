@@ -1,0 +1,8 @@
+services:
+  decider:
+    build:
+      args:
+        DECIDER_BACKEND: cuda
+    gpus: all
+    environment:
+      DECIDER_DEVICE: cuda

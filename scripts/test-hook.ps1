@@ -13,11 +13,11 @@ $status = 0
 try {
     $env:DECISION_MODE = "mock"
 
-    # Every sample is replayed against both providers, and `expectedDecision` is shared: the gate
+    # Every sample is replayed against all providers, and `expectedDecision` is shared: the gate
     # thresholds on max(p), so the provider must change the reported reason and nothing else. A
     # sample that only passes on one provider means provider-specific behaviour leaked out of
     # SystemOneEndpoint into policy code.
-    foreach ($provider in @("jev", "laya")) {
+    foreach ($provider in @("jev", "laya", "decider")) {
         $env:DECISION_PROVIDER = $provider
         foreach ($sample in Get-ChildItem "samples/hooks/*.json") {
             $payload = Get-Content -Raw $sample.FullName

@@ -1,0 +1,33 @@
+services:
+  decider:
+    build:
+      context: ../..
+      dockerfile: docker/decider/Dockerfile
+      args:
+        DECIDER_AI_VERSION: ${DECIDER_AI_VERSION:-1.6.0}
+        DECIDER_BACKEND: ${DECIDER_BACKEND:-cpu}
+    ports:
+      - "127.0.0.1:${DECIDER_HOST_PORT:-8011}:8000"
+    environment:
+      DECIDER_MODEL: ${DECIDER_MODEL:-Mapika/decider-4b}
+      DECIDER_DEVICE: ${DECIDER_DEVICE:-auto}
+      HF_HOME: /models
+      # Triton has no CPU driver in released builds, so FLA's Triton kernels crash the CPU image.
+      # Disabling hub kernels routes the model through the pure-PyTorch reference path.
+      USE_HUB_KERNELS: ${USE_HUB_KERNELS:-NO}
+    volumes:
+      - decider-model-cache:/models
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  decider-model-cache:

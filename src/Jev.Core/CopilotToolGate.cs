@@ -70,7 +70,7 @@ public sealed class CopilotToolGate
     //
     // They must be listed here because the repository hook applies to *every* tool the agent
     // calls, including the ones the host registered. Without this, the hook denies the agent's own
-    // decision calls and levels 6, 7, and 10 cannot run. Both prefixes are listed because
+    // decision calls and levels 6, 7, and 10 cannot run. Every provider prefix is listed because
     // DecisionToolSet names its tools after the selected provider, and the hook has no way to know
     // which provider the agent in another process was started with. Hard-deny and credential
     // checks still run first, so a decision call carrying secrets is escalated, not waved through.
@@ -78,6 +78,7 @@ public sealed class CopilotToolGate
     {
         "jev_noul", "jev_choice", "jev_score",
         "laya_noul", "laya_choice", "laya_score",
+        "decider_noul", "decider_choice", "decider_score",
     };
 
     private readonly IJevClient? _jev;
@@ -87,6 +88,7 @@ public sealed class CopilotToolGate
     private string ProviderName => _jev?.Provider switch
     {
         DecisionProvider.Laya => "Laya",
+        DecisionProvider.Decider => "Decider",
         DecisionProvider.Jev => "Jev",
         _ => "The decision provider",
     };
@@ -148,9 +150,9 @@ public sealed class CopilotToolGate
         double allow = Probability(answer, "allow");
         double deny = Probability(answer, "deny");
 
-        // Gate on AnswerConfidence (max(p)), never on the provider's own `confidence` field: Jev
-        // reports (n*p_max - 1)/(n - 1) and Laya reports normalized entropy, so a threshold tuned
-        // against one provider would silently loosen or tighten against the other.
+        // Gate on AnswerConfidence (max(p)), never on the provider's own `confidence` field. That
+        // field has provider-specific semantics (Laya entropy; Jev/Decider TypeSafe-compatible
+        // formulas), so a threshold tuned against one provider can silently change meaning on another.
         double confidence = answer.AnswerConfidence;
 
         if (deny >= 0.55 || (answer.Choice.Equals("deny", StringComparison.OrdinalIgnoreCase) && confidence >= 0.60))

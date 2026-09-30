@@ -46,3 +46,18 @@ against the same stub handler, so a future upstream change surfaces as a test fa
 runtime surprise.
 
 Documentation and package APIs evolve. Re-check the current docs before promoting the sample into organizational policy.
+
+## Decider references
+
+The Decider integration was checked against the public project and package surfaces current in September 2026:
+
+- Decider repository and server examples
+  https://github.com/Mapika/decider
+- `Mapika/decider-4b` model card
+  https://huggingface.co/Mapika/decider-4b
+- `decider-ai` package
+  https://pypi.org/project/decider-ai/
+- Docker Desktop GPU support on Windows/WSL 2
+  https://docs.docker.com/desktop/features/gpu/
+
+The integration relies on Decider's Jev-compatible `POST /v1/systemone` route and `/health` endpoint. The application reads Decider's `x_p_max` as `AnswerConfidence` while retaining the provider's own `confidence` for display. The local Docker image pins `decider-ai` 1.6.0 by default and selects `Mapika/decider-4b` through the server-side `DECIDER_MODEL` environment variable. Upstream currently supports GGUF through the Python engine, but its HTTP/schema path still uses the Torch engine; the Docker HTTP path in this repository therefore uses the Torch model rather than advertising GGUF as a drop-in server replacement.

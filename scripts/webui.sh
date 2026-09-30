@@ -8,8 +8,9 @@
 #   --no-build             skip the build
 #   --no-browser           do not launch a browser
 #   --include-agent-levels also build TenLevels.Jev
-#   --laya                 start the local Laya container (scripts/laya-up.sh), wait for /health,
-#                          and point the UI at it, so live mode is available for Laya
+#   --laya                 start the local Laya container and enable live mode for Laya
+#   --decider              start Decider in Docker and enable live mode for Decider
+#   --decider-gpu          same as --decider, with NVIDIA GPU access
 #   --restart              stop a UI that is already running on the port, then start this one;
 #                          only ever stops a Jev.WebUi process
 set -euo pipefail
@@ -22,6 +23,8 @@ build=1
 browser=1
 agent_levels=0
 laya=0
+decider=0
+decider_gpu=0
 restart=0
 
 for argument in "$@"; do
@@ -30,6 +33,8 @@ for argument in "$@"; do
     --no-browser) browser=0 ;;
     --include-agent-levels) agent_levels=1 ;;
     --laya) laya=1 ;;
+    --decider) decider=1 ;;
+    --decider-gpu) decider=1; decider_gpu=1 ;;
     --restart) restart=1 ;;
     *) echo "Unknown option: $argument" >&2; exit 2 ;;
   esac
@@ -76,7 +81,7 @@ stop_command() {
 }
 
 # Checked first, because an instance that is already running keeps the environment it started
-# with: it would not see --laya, and this one would only fail to bind after the build and the wait.
+# with: it would not see newly enabled local providers, and this one would only fail to bind after the build and the wait.
 if port_in_use; then
   owners="$(port_owner_pids)"
   only_webui=0
@@ -108,7 +113,7 @@ if port_in_use; then
 
       if [ "$only_webui" -eq 1 ]; then
         echo "That is an earlier demo UI. It keeps the environment it was started with, so it"
-        echo "will not pick up --laya or a changed LAYA_BASE_URL. Stop it and start this one:"
+        echo "will not pick up --laya/--decider or changed provider URLs. Stop it and start this one:"
         echo
         echo "  ./scripts/webui.sh${arguments_text:+ $arguments_text} --restart"
         echo
@@ -151,6 +156,15 @@ if [ "$laya" -eq 1 ]; then
   export LAYA_BASE_URL="http://${LAYA_BIND_ADDRESS:-127.0.0.1}:${LAYA_HOST_PORT:-8010}"
 fi
 
+if [ "$decider" -eq 1 ]; then
+  if [ "$decider_gpu" -eq 1 ]; then
+    "$repository/scripts/decider-up.sh" --gpu
+  else
+    "$repository/scripts/decider-up.sh"
+  fi
+  export DECIDER_BASE_URL="http://127.0.0.1:${DECIDER_HOST_PORT:-8011}"
+fi
+
 if [ "$browser" -eq 1 ]; then
   # Not waited on: the page retries its own API calls, so a browser that arrives a second early
   # simply loads a moment later.
@@ -163,11 +177,11 @@ fi
 
 echo
 echo "Presentation UI: $url"
-if [ "$laya" -eq 1 ]; then
-  echo "Laya live mode is available: requests go to $LAYA_BASE_URL."
-else
+if [ "$laya" -eq 1 ]; then echo "Laya live mode is available: requests go to $LAYA_BASE_URL."; fi
+if [ "$decider" -eq 1 ]; then echo "Decider live mode is available: requests go to $DECIDER_BASE_URL."; fi
+if [ "$laya" -eq 0 ] && [ "$decider" -eq 0 ]; then
   echo "Provider defaults to Laya in mock mode, which needs no API key and no network."
-  echo "Pass --laya to start the local Laya container and enable live mode."
+  echo "Pass --laya and/or --decider (or --decider-gpu) to enable local live providers."
 fi
 echo "Press Ctrl+C to stop."
 echo

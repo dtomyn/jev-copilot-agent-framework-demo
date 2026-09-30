@@ -240,9 +240,10 @@ explaining what is really going on.
   <a href="http://127.0.0.1:5088">127.0.0.1:5088</a>. Every level gets its real source on one side and
   a panel that runs it on the other, with the state, the questions and the code-owned thresholds
   editable. It defaults to <b>Laya in mock mode</b>, so it needs no API key, no container and no
-  network. Add <code>-Laya</code> (or <code>--laya</code>) to start the local Laya container first
-  and open the UI with Live enabled for Laya. For live Jev, enter a TypeSafe API key under
-  <b>Config</b> in the UI's top bar; it is held in memory for that UI only.</p>
+  network. Add <code>-Laya</code> (or <code>--laya</code>) to start Laya, or
+  <code>-Decider</code>/<code>-DeciderGpu</code> (or <code>--decider</code>/<code>--decider-gpu</code>)
+  to build/start Decider on port 8011. For live Jev, enter a TypeSafe API key under <b>Config</b>
+  in the UI's top bar; it is held in memory for that UI only.</p>
   <p>The two pages are wired together. Each level section below carries a
   <span class="runlive" style="cursor:default">Run live</span> link that opens that level in the UI,
   and the UI shows these same presenter notes, read out of this file, behind its own
@@ -254,10 +255,11 @@ explaining what is really going on.
 <p>
 A System-One decision engine answers <em>bounded semantic questions</em> very fast: a yes/no
 probability, a one-of-N choice, or a position on an ordered rubric. It is deliberately not a planner
-and not a code generator. Two of them are supported here and are interchangeable: the hosted TypeSafe
-Jev API, and <a href="https://github.com/NandhaKishorM/laya">Laya</a>, which is open source and runs in
-a container on your own machine. They speak the same wire protocol. Step 11 installs and runs Laya
-from scratch; step 12 proves the switch changes no decision.
+and not a code generator. Three providers are supported here and are interchangeable: the hosted TypeSafe
+Jev API, <a href="https://github.com/NandhaKishorM/laya">Laya</a>, and
+<a href="https://github.com/Mapika/decider">Decider</a>. The two open-source providers run locally and
+all three speak the same wire protocol. Step 11 installs Laya from scratch; <code>docs/DECIDER.md</code>
+shows the Windows/Docker Decider path; step 12 proves the provider switch changes no policy decision.
 </p>
 <p>
 This repository takes that primitive and walks it up ten levels until it is sitting inside a real
@@ -488,10 +490,11 @@ state in a single round trip.
 </p>
 
 <p>
-Two engines answer this exact request: hosted <b>TypeSafe Jev</b> and open-source <b>Laya</b>, whose
-<code>laya-serve</code> implements the same <code>POST /v1/systemone</code> contract on purpose. Pick one
-with <code>--provider</code>; everything else in this tutorial is identical. Step 11 installs Laya
-locally in Docker and step 12 compares the two side by side.
+Three engines answer this exact request: hosted <b>TypeSafe Jev</b>, open-source <b>Laya</b>, and
+open-source <b>Decider</b>. Both local servers implement the same <code>POST /v1/systemone</code>
+contract on purpose. Pick one with <code>--provider</code>; everything else in this tutorial is identical.
+Step 11 installs Laya locally, <code>docs/DECIDER.md</code> covers Decider, and step 12 compares the
+provider semantics side by side.
 </p>
 
 <div class="code">
@@ -797,8 +800,9 @@ routing=mock (no checkpoint loaded)</code></pre>
   <strong>Read those two outputs side by side - this is the central lesson of the provider work</strong>
   <p>The <code>choice</code>, the <code>score</code>, and the <code>answer=</code> numbers are
   <em>byte-for-byte identical</em>. Only <code>confidence=</code> moved, from 0.64 to 0.35 and from
-  0.84 to 0.64, because the two engines compute that field from different formulas over the same
-  distribution. Anything that thresholds on <code>confidence=</code> silently demands a different
+  0.84 to 0.64, because provider <code>confidence</code> can use different formulas over the same
+  distribution. Decider Choice follows the TypeSafe-compatible formula, while Decider Score has its own
+  TypeSafe-compatible score-distance formula. Anything that thresholds on <code>confidence=</code> silently demands a different
   amount of evidence per provider. Everything in this repository thresholds on
   <code>answer=</code> instead.</p>
 </div>
@@ -864,7 +868,7 @@ bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a d
   <div class="layer l-deny"><div class="n">1</div><div class="t"><b>Deterministic hard deny</b><span>Anchored regexes for explicitly destructive commands. Returns <b>deny</b>. Jev is never called.</span></div></div>
   <div class="layer l-ask"><div class="n">2</div><div class="t"><b>Credential stop</b><span>Anything that looks like secret material returns <b>ask</b> and is never forwarded to an external API.</span></div></div>
   <div class="layer l-allow"><div class="n">3</div><div class="t"><b>Read-only fast path</b><span>Known non-mutating tool names return <b>allow</b> with no model call and no latency.</span></div></div>
-  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host decision-tool exemption</b><span>All six names - <code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code> and <code>laya_noul</code> / <code>laya_choice</code> / <code>laya_score</code> - return a judgment and cannot mutate anything.</span></div></div>
+  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host decision-tool exemption</b><span>All nine names - the <code>jev_*</code>, <code>laya_*</code>, and <code>decider_*</code> Noul / Choice / Score tools - return a judgment and cannot mutate anything.</span></div></div>
   <div class="layer l-jev"><div class="n">5</div><div class="t"><b>Provider semantic classification</b><span>The ambiguous middle becomes a bounded Choice over allow / ask / deny, answered by whichever engine is selected.</span></div></div>
   <div class="layer l-jev"><div class="n">6</div><div class="t"><b>Code-owned thresholds</b><span>C# literals turn probability and confidence into a decision.</span></div></div>
   <div class="layer l-ask"><div class="n">7</div><div class="t"><b>Default: ask a human</b><span>Everything that did not clear a threshold escalates. Ask is the fallback, never allow.</span></div></div>
@@ -890,15 +894,15 @@ return new GateResult(GateDecision.Ask, $"{ProviderName} did not clear the confi
 
 <div class="callout good">
   <strong>Two lines here carry the entire provider story</strong>
-  <p><code>answer.AnswerConfidence</code> is <code>max(p)</code>, which both engines define the same
-  way. <code>answer.Confidence</code> - the field that arrives on the wire and looks like the obvious
+  <p><code>answer.AnswerConfidence</code> is <code>max(p)</code>, which is normalized the same way
+  across all three providers. <code>answer.Confidence</code> - the field that arrives on the wire and looks like the obvious
   one to read - is <em>not</em> comparable across providers and appears nowhere in this file.
   <code>ProviderName</code> is the only other provider-aware thing in the gate, and it only affects
   the human-readable reason string, which is why the same run under Laya reads
   "<code>Laya did not clear the confidence threshold</code>".</p>
 </div>
 
-<p>Run level 5 under both engines and confirm the decision column does not move:</p>
+<p>Run level 5 under each provider and confirm the decision column does not move:</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
@@ -1276,8 +1280,8 @@ copilot</code></pre>
 <tbody>
 <tr><td><code>off</code> <em>(default)</em></td><td>Deterministic rules only; every other mutation becomes <span class="pill ask">ask</span></td><td>None</td><td>Safest baseline</td></tr>
 <tr><td><code>mock</code></td><td>Deterministic local simulator</td><td>None</td><td>Demos, offline, CI</td></tr>
-<tr><td><code>live</code></td><td>The selected provider, 2-second HTTP cap</td><td>api.typesafe.ai, or localhost for Laya</td><td>Real evaluation</td></tr>
-<tr><td><code>auto</code></td><td><code>live</code> when the provider is configured (a key for Jev, a base URL for Laya), otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
+<tr><td><code>live</code></td><td>The selected provider, 2-second HTTP cap</td><td>api.typesafe.ai, or localhost for Laya/Decider</td><td>Real evaluation</td></tr>
+<tr><td><code>auto</code></td><td><code>live</code> when the provider is configured (a key for Jev, a base URL for Laya or Decider), otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
 </tbody>
 </table>
 
@@ -1365,8 +1369,8 @@ answered:</p>
 <pre><code>public DecisionToolSet(IJevClient jev)
 {
     _jev = jev;
-    _prefix       = jev.Provider == DecisionProvider.Laya ? <span class="hl">"laya"</span> : <span class="hl">"jev"</span>;
-    _providerName = jev.Provider == DecisionProvider.Laya ? "Laya" : "Jev";
+    _prefix       = <span class="hl">SystemOneEndpoint.ProviderId(jev.Provider)</span>;
+    _providerName = SystemOneEndpoint.ProviderDisplayName(jev.Provider);
 }
 
 public string NoulToolName   =&gt; $"{_prefix}_noul";
@@ -1399,13 +1403,14 @@ cannot confuse them either:</p>
 </div>
 
 <div class="callout danger">
-  <strong>This is why the hook allow-lists six names, not three</strong>
+  <strong>This is why the hook allow-lists nine names, not three</strong>
   <p>The Copilot runtime these levels spawn runs in this repository's working directory, so it loads
   this repository's <code>.github/hooks/jev-policy.json</code> and the hook sees the agent's own
   decision calls. The hook is a separate process and cannot know which provider the agent was
   started with, so <code>CopilotToolGate</code> allows <code>jev_noul</code> /
-  <code>jev_choice</code> / <code>jev_score</code> <em>and</em> <code>laya_noul</code> /
-  <code>laya_choice</code> / <code>laya_score</code>. Drop either set and levels 6, 7, and 10 fail
+  <code>jev_choice</code> / <code>jev_score</code>, <code>laya_noul</code> /
+  <code>laya_choice</code> / <code>laya_score</code>, and <code>decider_noul</code> /
+  <code>decider_choice</code> / <code>decider_score</code>. Drop any set and levels 6, 7, and 10 fail
   for that provider with a fail-closed hook error.</p>
 </div>
 
@@ -1991,38 +1996,51 @@ cannot phone home even in principle. Save it as
   the plain compose file when you want the server.</p>
 </div>
 
+<div class="callout good">
+  <strong>Windows 11: the equivalent Decider path is already in this repository</strong>
+  <p>Decider does not require a second .NET client. The repository builds a thin Docker image around
+  <code>decider-ai</code> and exposes its Jev-compatible server on <code>127.0.0.1:8011</code>, so it can
+  run beside Laya. On PowerShell use <code>.\scripts\decider-up.ps1</code> for CPU or
+  <code>.\scripts\decider-up.ps1 -Gpu</code> for an NVIDIA GPU, then set
+  <code>DECIDER_BASE_URL=http://127.0.0.1:8011</code> and choose <code>--provider decider</code>.
+  The full setup, model-size notes, persistent cache, and GGUF limitation are in
+  <a href="DECIDER.md"><code>docs/DECIDER.md</code></a>.</p>
+</div>
+
 <hr>
 
 <h2 id="step12"><span class="stepnum">12</span>Prove the provider switch changes nothing that matters</h2>
 
-<p>The claim this architecture makes is narrow and checkable: <em>selecting a different engine
-changes the numbers you display and not a single decision you enforce.</em> Run the three commands
-below in order and read the three columns.</p>
+<p>The claim this architecture makes is narrow and checkable: <em>selecting a different engine changes
+provider metadata but not the policy meaning of a probability.</em> Run the four commands below. The
+three mock columns use identical probability distributions; the live Laya column proves a real model
+can move the evidence without moving policy ownership into the model.</p>
 
 <div class="code">
   <div class="code-head">command<div class="spacer"></div><button class="copy">Copy</button></div>
-<pre><code>dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev  --mode mock
-dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode mock
-dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live</code></pre>
+<pre><code>dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev     --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya    --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider decider --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya    --mode live</code></pre>
 </div>
 
 <table>
-<thead><tr><th></th><th>jev / mock</th><th>laya / mock</th><th>laya / live</th></tr></thead>
+<thead><tr><th></th><th>jev / mock</th><th>laya / mock</th><th>decider / mock</th><th>laya / live</th></tr></thead>
 <tbody>
-<tr><td><code>route</code> choice</td><td>ask</td><td>ask</td><td>allow</td></tr>
-<tr><td><code>answer=</code> (max p)</td><td>0.76</td><td><b>0.76</b></td><td>0.53</td></tr>
-<tr><td><code>confidence=</code></td><td>0.64</td><td><b>0.35</b></td><td>0.19</td></tr>
-<tr><td><code>risk</code> score</td><td>1.56</td><td><b>1.56</b></td><td>1.10</td></tr>
-<tr><td>Gate decision (level 5)</td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td></tr>
-<tr><td><code>model=</code></td><td>mock-jev</td><td>mock-laya</td><td>laya-rl-agent</td></tr>
-<tr><td><code>routing=</code></td><td>(none)</td><td>mock placeholder</td><td>english</td></tr>
+<tr><td><code>route</code> choice</td><td>ask</td><td>ask</td><td>ask</td><td>allow</td></tr>
+<tr><td><code>answer=</code> (max p)</td><td>0.76</td><td><b>0.76</b></td><td><b>0.76</b></td><td>0.53</td></tr>
+<tr><td><code>confidence=</code></td><td>0.64</td><td><b>0.35</b></td><td>0.64</td><td>0.19</td></tr>
+<tr><td><code>risk</code> score</td><td>1.56</td><td><b>1.56</b></td><td><b>1.56</b></td><td>1.10</td></tr>
+<tr><td>Gate decision (level 5)</td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td></tr>
+<tr><td><code>model=</code></td><td>mock-jev</td><td>mock-laya</td><td>mock-decider</td><td>laya-rl-agent</td></tr>
+<tr><td><code>routing=</code></td><td>(none)</td><td>mock placeholder</td><td>(none)</td><td>english</td></tr>
 </tbody>
 </table>
 
-<p>Columns one and two differ in exactly one row: <code>confidence=</code>. Same distribution, same
-answer, same score, same decision, different number - because the two engines define that word
-differently. Column three is a real model and moves everything, and still lands on the same gate
-decision, because 0.53 is nowhere near the 0.85 allow bar.</p>
+<p>The three mock columns have the same <code>answer=</code>, score, and gate decision. Laya's display
+<code>confidence=</code> differs because it is normalized entropy; Decider Choice follows the same
+TypeSafe-compatible Choice formula as Jev (and Decider Score uses the TypeSafe score-distance formula).
+The live model moves the actual distribution, but the gate still applies the same code-owned bars.</p>
 
 <h3>The property is pinned by tests, not by memory</h3>
 
@@ -2034,7 +2052,7 @@ decision, because 0.53 is nowhere near the 0.85 allow bar.</p>
 <span class="ok">PASS</span>  the mock reproduces each provider's own confidence definition</code></pre>
 </div>
 
-<p>The third of those enumerates the gate's inputs under both providers and asserts the decisions are
+<p>The third of those enumerates the gate's inputs under all three providers and asserts the decisions are
 identical. The fourth is what makes the offline mock worth trusting: it reproduces each engine's own
 confidence formula over the same distribution, so the difference that would bite you in production is
 visible on a laptop with no network and in CI.</p>
@@ -2042,15 +2060,15 @@ visible on a laptop with no network and in CI.</p>
 <h3>Where the difference is allowed to live</h3>
 
 <table>
-<thead><tr><th></th><th>Jev</th><th>Laya</th></tr></thead>
+<thead><tr><th></th><th>Jev</th><th>Laya</th><th>Decider</th></tr></thead>
 <tbody>
-<tr><td>Endpoint</td><td><code>https://api.typesafe.ai/v1/systemone</code></td><td><code>http://127.0.0.1:8010/v1/systemone</code></td></tr>
-<tr><td>Credentials</td><td><code>TYPESAFE_API_KEY</code>, always required</td><td><code>LAYA_API_KEY</code>, only if the server was started with one</td></tr>
-<tr><td><code>model</code> field</td><td><code>jev-latest</code></td><td>omitted, so the router picks per request</td></tr>
-<tr><td>Response extras</td><td>-</td><td><code>answer_confidence</code>, <code>routing</code></td></tr>
-<tr><td>Where the state goes</td><td>a third-party service</td><td>a container on your machine</td></tr>
-<tr><td><code>confidence</code> means</td><td><code>(n&times;p_max - 1)/(n - 1)</code></td><td>normalized entropy <code>1 - H(p)/log(k)</code></td></tr>
-<tr><td>Function-tool names</td><td><code>jev_noul</code> / <code>jev_choice</code> / <code>jev_score</code></td><td><code>laya_noul</code> / <code>laya_choice</code> / <code>laya_score</code></td></tr>
+<tr><td>Endpoint</td><td><code>https://api.typesafe.ai/v1/systemone</code></td><td><code>http://127.0.0.1:8010/v1/systemone</code></td><td><code>http://127.0.0.1:8011/v1/systemone</code></td></tr>
+<tr><td>Credentials</td><td><code>TYPESAFE_API_KEY</code>, required</td><td><code>LAYA_API_KEY</code>, optional server setting</td><td>none on the stock local server</td></tr>
+<tr><td><code>model</code> field</td><td><code>jev-latest</code></td><td>omitted so the router picks per request</td><td>omitted; server uses <code>DECIDER_MODEL</code></td></tr>
+<tr><td>Response extras</td><td>-</td><td><code>answer_confidence</code>, <code>routing</code></td><td><code>x_p_max</code>, <code>certainty</code></td></tr>
+<tr><td>Where the state goes</td><td>a third-party service</td><td>a container on your machine</td><td>a container on your machine</td></tr>
+<tr><td><code>confidence</code> means</td><td>TypeSafe formula</td><td>normalized entropy</td><td>TypeSafe-compatible Choice / Score formulas</td></tr>
+<tr><td>Function-tool names</td><td><code>jev_*</code></td><td><code>laya_*</code></td><td><code>decider_*</code></td></tr>
 </tbody>
 </table>
 
@@ -2065,9 +2083,9 @@ provider-specific code beyond the display name in its reason strings.</p>
   <code>0.7555</code>. For <code>0.76 / 0.12 / 0.12</code>, Jev reports <code>0.6400</code> and Laya
   <code>0.3471</code>. A 0.75 threshold tuned on Jev would reject a decisive Laya answer outright.
   <code>CopilotToolGate</code> therefore never reads that field: it thresholds on
-  <code>AnswerConfidence</code>, the probability mass on the reported answer, which both engines
-  define identically. Laya sends it as <code>answer_confidence</code>; for Jev, which does not send
-  it, the client recovers the same number from the returned distribution.</p>
+  <code>AnswerConfidence</code>, the probability mass on the reported answer, which is provider-independent.
+  Laya sends it as <code>answer_confidence</code>, Decider sends it as <code>x_p_max</code>, and for Jev,
+  which sends neither, the client recovers the same number from the returned distribution.</p>
   <p>Both numbers are kept and both are printed, because the provider's own value is still the right
   thing to show a person. Only policy is forbidden from reading it.</p>
 </div>
@@ -2081,7 +2099,7 @@ provider-specific code beyond the display name in its reason strings.</p>
   gating differently the day someone set <code>DECISION_PROVIDER=laya</code>.</p>
   <p>Care is not what prevented it. Structure did: one record holding every difference between
   providers, one client that reads it, policy code that is not allowed to know which provider it is
-  running on, and a self-test that checks every decision under both. Any one of those on its own would
+  running on, and a self-test that checks every decision under all three. Any one of those on its own would
   not have been enough.</p>
   <p>Then make the adoption argument. Data residency is often the reason a client cannot adopt an
   agent policy hook at all: tool arguments contain source code, paths, and repository structure, and a
@@ -2097,7 +2115,7 @@ provider-specific code beyond the display name in its reason strings.</p>
 <table>
 <thead><tr><th>Variable</th><th>Default</th><th>Read by</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td><code>DECISION_PROVIDER</code></td><td>(inferred)</td><td>Both</td><td><code>jev</code> / <code>laya</code>. Unset: <code>laya</code> when <code>LAYA_BASE_URL</code> is set, else <code>jev</code>.</td></tr>
+<tr><td><code>DECISION_PROVIDER</code></td><td>(inferred)</td><td>CLI / hook / UI</td><td><code>jev</code> / <code>laya</code> / <code>decider</code>. Unset: Laya wins when <code>LAYA_BASE_URL</code> is set, then Decider when <code>DECIDER_BASE_URL</code> is set, else Jev.</td></tr>
 <tr><td><code>DECISION_MODE</code></td><td><code>off</code></td><td>Hook adapter</td><td><code>off</code> / <code>mock</code> / <code>live</code> / <code>auto</code>. Falls back to <code>JEV_MODE</code>.</td></tr>
 <tr><td><code>DECISION_HOOK_DEADLINE_MS</code></td><td><code>4000</code></td><td>Hook adapter</td><td>Internal deadline. Must stay below <code>timeoutSec</code>. Falls back to <code>JEV_HOOK_DEADLINE_MS</code>.</td></tr>
 <tr><td><code>TYPESAFE_API_KEY</code></td><td>(none)</td><td>Both</td><td>Bearer token for the Jev API. Required for <code>live</code> on Jev.</td></tr>
@@ -2111,6 +2129,11 @@ provider-specific code beyond the display name in its reason strings.</p>
 <tr><td><code>LAYA_BIND_ADDRESS</code></td><td><code>127.0.0.1</code></td><td><code>laya-up</code>, compose</td><td>Interface the port is published on. Loopback, because the API is unauthenticated by default.</td></tr>
 <tr><td><code>LAYA_MODELS</code></td><td>(server default)</td><td>compose</td><td>Which checkpoints the container preloads. Empty keeps all three.</td></tr>
 <tr><td><code>LAYA_CPUS</code> / <code>LAYA_MEMORY</code></td><td><code>4</code> / <code>6g</code></td><td>compose</td><td>Container resource limits</td></tr>
+<tr><td><code>DECIDER_BASE_URL</code></td><td><code>http://127.0.0.1:8011/</code></td><td>HTTP client / UI</td><td>Where the local Decider server listens. Setting it also makes Decider live mode available.</td></tr>
+<tr><td><code>DECIDER_MODEL</code></td><td><code>Mapika/decider-4b</code></td><td>Decider container</td><td>Server-side model selection; it is not sent in each request.</td></tr>
+<tr><td><code>DECIDER_DEVICE</code></td><td><code>auto</code></td><td>Decider container</td><td><code>auto</code> / <code>cpu</code> / <code>cuda</code>; the GPU helper sets CUDA.</td></tr>
+<tr><td><code>DECIDER_HOST_PORT</code></td><td><code>8011</code></td><td>compose / scripts</td><td>Loopback host port for Decider.</td></tr>
+<tr><td><code>DECIDER_AI_VERSION</code></td><td><code>1.6.0</code></td><td>Docker build</td><td>Version of the <code>decider-ai</code> package pinned in the local image.</td></tr>
 <tr><td><code>COPILOT_CLI_PATH</code></td><td>(none)</td><td>Levels 6, 7, 10</td><td>Path to a Copilot binary when not using the SDK-downloaded one</td></tr>
 <tr><td><code>COPILOT_HOME</code></td><td><code>~/.copilot</code></td><td>Copilot CLI</td><td>Where Copilot keeps session state and config</td></tr>
 </tbody>
@@ -2124,11 +2147,12 @@ provider-specific code beyond the display name in its reason strings.</p>
   --level &lt;n&gt;             Run one level (default: 1).
   --all                   Run every level that does not need a Copilot runtime.
   --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
-  --provider &lt;jev|laya&gt;   Decision engine (default: DECISION_PROVIDER, else laya when
-                          LAYA_BASE_URL is set, else jev).
+  --provider &lt;jev|laya|decider&gt;
+                          Decision engine (default: DECISION_PROVIDER, else laya when
+                          LAYA_BASE_URL is set, decider when DECIDER_BASE_URL is set, else jev).
   --mode &lt;mock|live&gt;      How to reach it (default: mock). '--jev' is accepted as an alias.
-                          'live' needs TYPESAFE_API_KEY for jev, or a running laya-serve
-                          for laya (see docs/LAYA.md).</code></pre>
+                          'live' needs TYPESAFE_API_KEY for jev, or a running local server
+                          for laya/decider (see docs/LAYA.md and docs/DECIDER.md).</code></pre>
 </div>
 
 <p>Exit codes: <code>0</code> success, <code>1</code> a Copilot-backed level failed, <code>2</code> bad
@@ -2139,10 +2163,10 @@ arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ct
 <table>
 <thead><tr><th>Path</th><th>Role</th></tr></thead>
 <tbody>
-<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs for the <code>/v1/systemone</code> contract both providers speak</td></tr>
-<tr><td><code>src/Jev.Core/IJevClient.cs</code></td><td>The one-method interface both providers implement</td></tr>
-<tr><td><code>src/Jev.Core/DecisionProviders.cs</code></td><td>Provider selection. Every Jev/Laya difference lives here and nowhere else.</td></tr>
-<tr><td><code>src/Jev.Core/SystemOneHttpClient.cs</code></td><td>Live client for both providers. Small on purpose so the wire contract is inspectable.</td></tr>
+<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs for the <code>/v1/systemone</code> contract all three providers speak</td></tr>
+<tr><td><code>src/Jev.Core/IJevClient.cs</code></td><td>The one-method interface all providers implement</td></tr>
+<tr><td><code>src/Jev.Core/DecisionProviders.cs</code></td><td>Provider selection. Jev/Laya/Decider endpoint differences live here, not in policy.</td></tr>
+<tr><td><code>src/Jev.Core/SystemOneHttpClient.cs</code></td><td>Live client for all three providers. Small on purpose so the wire contract is inspectable.</td></tr>
 <tr><td><code>src/Jev.Core/MockJevClient.cs</code></td><td>Deterministic offline simulator driven by risk bands</td></tr>
 <tr><td><code>src/Jev.Core/RiskHeuristics.cs</code></td><td>Anchored regexes: hard deny, credential shapes, demo risk bands</td></tr>
 <tr><td><code>src/Jev.Core/CopilotToolGate.cs</code></td><td>The layered policy engine. Shared by levels 5, 8, 9, and the hook.</td></tr>
@@ -2152,7 +2176,10 @@ arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ct
 <tr><td><code>src/TenLevels.Jev/Copilot/DecisionToolSet.cs</code></td><td>The three primitives as Agent Framework function tools, named after the selected provider</td></tr>
 <tr><td><code>scripts/laya-up.ps1</code> / <code>.sh</code></td><td>Starts the local Laya container and waits for <code>/health</code></td></tr>
 <tr><td><code>scripts/laya-down.ps1</code> / <code>.sh</code></td><td>Stops it, keeping the model-cache volume unless you ask otherwise</td></tr>
-<tr><td><code>docs/LAYA.md</code></td><td>The provider reference: endpoints, limits, routing, offline mode, accuracy</td></tr>
+<tr><td><code>scripts/decider-up.ps1</code> / <code>.sh</code></td><td>Builds/starts local Decider and waits for <code>/health</code></td></tr>
+<tr><td><code>scripts/decider-down.ps1</code> / <code>.sh</code></td><td>Stops Decider, optionally removing the cached model volume</td></tr>
+<tr><td><code>docs/LAYA.md</code></td><td>The Laya provider reference</td></tr>
+<tr><td><code>docs/DECIDER.md</code></td><td>Windows/Docker setup, GPU option, model sizing, and Decider compatibility notes</td></tr>
 <tr><td><code>scripts/jev-hook.ps1</code> / <code>.sh</code></td><td>Thin wrappers. Always exit 0, always print one decision.</td></tr>
 <tr><td><code>scripts/test-hook.ps1</code> / <code>.sh</code></td><td>Replays every sample and asserts its expected decision</td></tr>
 <tr><td><code>samples/hooks/*.json</code></td><td>Ten payloads, each with its expected decision and a note</td></tr>
@@ -2191,8 +2218,8 @@ and in CI. Policy never reads it.</p>
   engineered and one that looks lucky.</p>
   <p>It also explains why the mock is a teaching tool and not just a convenience. The Medium band puts
   0.76 on <code>ask</code>, which leaves 0.12 on <code>allow</code>, far below the gate's 0.85 allow
-  threshold. So you can do the threshold arithmetic live, and it comes out the same every time, on
-  either provider.</p>
+  threshold. So you can do the threshold arithmetic live, and it comes out the same every time,
+  regardless of the selected provider.</p>
 </div>
 
 <h2 id="troubleshoot">Troubleshooting</h2>
@@ -2271,9 +2298,9 @@ and in CI. Policy never reads it.</p>
   <td>Authenticate the CLI, or set <code>COPILOT_CLI_PATH</code> to an installed binary</td>
 </tr>
 <tr>
-  <td>The agent's own <code>jev_*</code> or <code>laya_*</code> calls get denied</td>
+  <td>The agent's own <code>jev_*</code>, <code>laya_*</code>, or <code>decider_*</code> calls get denied</td>
   <td>The exemption list in <code>CopilotToolGate</code> was removed or renamed</td>
-  <td>Restore all six names in <code>DecisionTools</code>; the tool prefix follows the selected provider</td>
+  <td>Restore all nine names in <code>DecisionTools</code>; the tool prefix follows the selected provider</td>
 </tr>
 </tbody>
 </table>
@@ -2355,9 +2382,9 @@ work through this list:</p>
     <li><b>Tests in both directions.</b> Every rule has a command that must match and a harmless one
     that must not, so loosening a rule shows up in a diff.</li>
   </ol>
-  <p>All four hold whether you use Jev, Laya, a different model, or no model at all. The provider
-  switch is itself an example of the second one: the difference between the two engines is data in
-  <code>SystemOneEndpoint</code>, not a branch in the policy code.</p>
+  <p>All four hold whether you use Jev, Laya, Decider, a different model, or no model at all. The provider
+  switch is itself an example of the second one: provider differences are data in
+  <code>SystemOneEndpoint</code>, not branches in the policy code.</p>
 </div>
 
 <h2 id="script">The 15-minute demo script</h2>

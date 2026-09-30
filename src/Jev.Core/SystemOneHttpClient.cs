@@ -5,8 +5,8 @@ using System.Text.Json;
 namespace Jev.Core;
 
 /// <summary>
-/// One client for the <c>POST /v1/systemone</c> System-One contract, which both TypeSafe Jev and
-/// Laya's <c>laya-serve</c> speak. Everything provider-specific is in the
+/// One client for the <c>POST /v1/systemone</c> System-One contract shared by TypeSafe Jev,
+/// Laya, and Mapika Decider. Everything provider-specific is in the
 /// <see cref="SystemOneEndpoint"/> it is constructed with.
 /// </summary>
 public sealed class SystemOneHttpClient : IJevClient, IDisposable
@@ -35,7 +35,7 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
     public DecisionProvider Provider => _endpoint.Provider;
 
     public string Description => $"{_endpoint.DisplayName} live ({_endpoint.BaseAddress}" +
-        $"{(_endpoint.Model is null ? ", router-selected model" : $", model={_endpoint.Model}")}" +
+        $"{(_endpoint.Model is null ? ", provider-selected model" : $", model={_endpoint.Model}")}" +
         $"{(_endpoint.ApiKey is null ? ", no bearer token" : string.Empty)})";
 
     public static SystemOneHttpClient FromEnvironment(
@@ -78,8 +78,8 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
             Content = JsonContent.Create(payload, options: JevJson.Options),
         };
 
-        // Laya only requires a bearer token when the server was started with LAYA_API_KEY set.
-        // Sending an empty one would be a 401 against a server that wants no authentication.
+        // Local providers normally use no bearer token. Laya can opt into one; Decider's stock
+        // server is unauthenticated. Never send an empty Authorization header.
         if (_endpoint.ApiKey is { Length: > 0 } apiKey)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
@@ -150,17 +150,22 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
     }
 
     /// <summary>
-    /// Laya reports <c>answer_confidence</c> (the calibrated <c>max(p)</c>) next to its own
-    /// entropy-based <c>confidence</c>. Jev sends only <c>confidence</c>, under a different
-    /// definition, so for Jev the same quantity is recovered from the distribution rather than
-    /// letting one threshold silently mean two things.
+    /// Laya reports <c>answer_confidence</c>; Decider reports the same provider-independent
+    /// <c>max(p)</c> quantity as <c>x_p_max</c>. Jev reports neither, so it is recovered from the
+    /// returned distribution. Policy thresholds therefore keep the same meaning on every provider.
     /// </summary>
     private static double ReadAnswerConfidence(JsonElement answer, Dictionary<string, double> probabilities)
     {
-        if (answer.TryGetProperty("answer_confidence", out JsonElement reported) &&
-            reported.ValueKind == JsonValueKind.Number)
+        if (answer.TryGetProperty("answer_confidence", out JsonElement layaReported) &&
+            layaReported.ValueKind == JsonValueKind.Number)
         {
-            return reported.GetDouble();
+            return layaReported.GetDouble();
+        }
+
+        if (answer.TryGetProperty("x_p_max", out JsonElement deciderReported) &&
+            deciderReported.ValueKind == JsonValueKind.Number)
+        {
+            return deciderReported.GetDouble();
         }
 
         return probabilities.Count == 0
@@ -197,7 +202,8 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
 
     private sealed record SystemOneRequest(
         [property: System.Text.Json.Serialization.JsonPropertyName("state")] object State,
-        // Null is omitted by JevJson.Options, which is how a Laya request asks the router to pick.
+        // Null is omitted by JevJson.Options. Laya then lets its router pick a checkpoint; Decider
+        // uses the model selected when its server process started.
         [property: System.Text.Json.Serialization.JsonPropertyName("model")] string? Model,
         [property: System.Text.Json.Serialization.JsonPropertyName("questions")] IReadOnlyDictionary<string, JevQuestion> Questions);
 }

@@ -4,10 +4,10 @@ namespace Jev.Core;
 /// Deterministic offline stand-in for a System-One provider, so every level and every hook sample
 /// produces stable, explainable output with no network and no API key.
 ///
-/// It also reproduces the one place where the two providers genuinely disagree: the meaning of
-/// <c>confidence</c>. The probabilities are identical for both, but the reported
-/// <see cref="ChoiceAnswer.Confidence"/> follows whichever formula the selected provider uses. The
-/// gate is unaffected because it reads <c>AnswerConfidence</c>, and a self-test pins that.
+/// It also reproduces the provider-specific meaning of <c>confidence</c>. The probabilities are
+/// identical across providers, but the reported
+/// <see cref="ChoiceAnswer.Confidence"/> follows whichever formula the selected provider uses. The gate is unaffected because it reads
+/// <c>AnswerConfidence</c>, and a self-test pins that.
 /// </summary>
 public sealed class MockJevClient : IJevClient
 {
@@ -15,7 +15,7 @@ public sealed class MockJevClient : IJevClient
 
     public DecisionProvider Provider { get; }
 
-    public string Description => $"{(Provider == DecisionProvider.Laya ? "Laya" : "Jev")} mock (offline, deterministic)";
+    public string Description => $"{SystemOneEndpoint.ProviderDisplayName(Provider)} mock (offline, deterministic)";
 
     public Task<SystemOneResponse> DecideAsync(
         object state,
@@ -38,7 +38,7 @@ public sealed class MockJevClient : IJevClient
         }
 
         return Task.FromResult(new SystemOneResponse(
-            Provider == DecisionProvider.Laya ? "mock-laya" : "mock-jev",
+            $"mock-{SystemOneEndpoint.ProviderId(Provider)}",
             answers,
             new JevUsage(Math.Max(1, text.Length / 4), questions.Count * 4),
             Provider == DecisionProvider.Laya ? "mock (no checkpoint loaded)" : null));
@@ -84,7 +84,7 @@ public sealed class MockJevClient : IJevClient
         Dictionary<string, double> probabilities = Distribution(keys, chosen, selected);
         return new ChoiceAnswer(
             chosen,
-            ProviderConfidence(probabilities.Values),
+            ProviderConfidence(probabilities.Values, isScore: false),
             selected,
             probabilities);
     }
@@ -119,18 +119,18 @@ public sealed class MockJevClient : IJevClient
 
         return new ScoreAnswer(
             Math.Round(score, 2),
-            ProviderConfidence(probabilities.Values),
+            ProviderConfidence(probabilities.Values, isScore: true),
             Selected,
             legend,
             probabilities);
     }
 
     /// <summary>
-    /// Reproduces each provider's own <c>confidence</c> definition: Jev's
-    /// <c>(n*p_max - 1)/(n - 1)</c>, Laya's normalized entropy <c>1 - H(p)/log(k)</c>. Two numbers
-    /// for the same distribution, which is exactly why policy must not threshold on this one.
+    /// Reproduces the selected provider's own display <c>confidence</c>. Jev and Decider Choice
+    /// use <c>(n*p_max - 1)/(n - 1)</c>; Decider Score uses TypeSafe's distance formula; Laya uses
+    /// normalized entropy. Policy deliberately thresholds the separate max(p) value instead.
     /// </summary>
-    private double ProviderConfidence(IEnumerable<double> probabilities)
+    private double ProviderConfidence(IEnumerable<double> probabilities, bool isScore)
     {
         double[] p = probabilities.ToArray();
         if (p.Length < 2)
@@ -142,6 +142,15 @@ public sealed class MockJevClient : IJevClient
         {
             double entropy = p.Where(v => v > 0).Sum(v => -v * Math.Log(v));
             return Math.Round(1 - (entropy / Math.Log(p.Length)), 4);
+        }
+
+        if (Provider == DecisionProvider.Decider && isScore)
+        {
+            int mostLikely = Array.IndexOf(p, p.Max());
+            double middle = (p.Length - 1) / 2.0;
+            double denominator = Enumerable.Range(0, p.Length).Average(i => Math.Abs(i - middle));
+            double expectedDistance = p.Select((value, i) => value * Math.Abs(i - mostLikely)).Sum();
+            return Math.Round(Math.Max(0, 1 - (expectedDistance / denominator)), 4);
         }
 
         return Math.Round(((p.Length * p.Max()) - 1) / (p.Length - 1), 4);

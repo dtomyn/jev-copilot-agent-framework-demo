@@ -37,8 +37,9 @@ public sealed record NoulAnswer(double Noul) : JevAnswer
 
 /// <param name="Confidence">
 /// The provider's own confidence number, reported as sent. It is <b>not</b> comparable across
-/// providers: Jev defines it as <c>(n*p_max - 1)/(n - 1)</c> and Laya as the normalized entropy
-/// <c>1 - H(p)/log(k)</c>. Use it for display, not for a threshold that has to hold on both.
+/// providers: Jev and Decider Choice answers use <c>(n*p_max - 1)/(n - 1)</c>, Decider Score
+/// uses TypeSafe's distance-based score confidence, and Laya uses normalized entropy
+/// <c>1 - H(p)/log(k)</c>. Use it for display, not for cross-provider policy thresholds.
 /// </param>
 /// <param name="AnswerConfidence">
 /// Probability mass on the reported answer (<c>max(p)</c>). Provider-independent by construction,
@@ -67,7 +68,7 @@ public sealed record JevUsage(int InputTokens, int OutputTokens);
 /// <param name="Model">The decision head that answered, as named by the provider.</param>
 /// <param name="Routing">
 /// Which checkpoint the provider's router picked and why, when it reports one. Laya fills this in;
-/// Jev has no equivalent field and leaves it <c>null</c>.
+/// Jev and Decider have no equivalent routing block and leave it <c>null</c>.
 /// </param>
 public sealed record SystemOneResponse(
     string Model,

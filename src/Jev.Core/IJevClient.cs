@@ -1,7 +1,7 @@
 namespace Jev.Core;
 
 /// <summary>
-/// A System-One decision provider: TypeSafe Jev, Laya, or the offline mock.
+/// A System-One decision provider: TypeSafe Jev, Laya, Decider, or the offline mock.
 /// </summary>
 public interface IJevClient
 {

@@ -144,7 +144,7 @@ static async Task<Results<Ok<T>, BadRequest<ProblemView>>> Guarded<T>(Func<Task<
     catch (TaskCanceledException)
     {
         return TypedResults.BadRequest(new ProblemView(
-            "The live provider did not answer in time. A cold Laya container loads its checkpoint on the first request; try again, or switch to mock."));
+            "The live provider did not answer in time. A cold local model may still be loading; wait for its /health endpoint, try again, or switch to mock."));
     }
 }
 

@@ -15,7 +15,7 @@ public static class LevelOutput
 {
     /// <summary>Display name of the provider behind a client, for prompts and level output.</summary>
     public static string ProviderName(IJevClient jev) =>
-        jev.Provider == DecisionProvider.Laya ? "Laya" : "Jev";
+        SystemOneEndpoint.ProviderDisplayName(jev.Provider);
 
     public static void Header(ILevelDemo level)
     {
@@ -26,8 +26,8 @@ public static class LevelOutput
     }
 
     // Both confidence numbers are printed because they are not the same quantity: `confidence` is
-    // the provider's own definition (Jev's (n*p_max - 1)/(n - 1), Laya's normalized entropy) and
-    // `answer` is max(p), which is what policy thresholds use.
+    // provider-defined (Laya uses normalized entropy; Jev and Decider expose TypeSafe-compatible
+    // formulas), while `answer` is max(p), which is what policy thresholds use.
     public static void Answer(string name, JevAnswer answer)
     {
         Console.WriteLine($"{name}: {answer switch

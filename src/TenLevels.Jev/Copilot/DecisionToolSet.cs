@@ -6,8 +6,9 @@ namespace TenLevels.Jev.Copilot;
 
 /// <summary>
 /// The three System-One primitives, exposed to a Microsoft Agent Framework agent as function
-/// tools. The tool names carry the provider prefix (<c>jev_*</c> or <c>laya_*</c>) so a transcript
-/// shows which engine answered; <c>CopilotToolGate</c> allows both prefixes, because the
+/// tools. The tool names carry the provider prefix (<c>jev_*</c>, <c>laya_*</c>, or
+/// <c>decider_*</c>) so a transcript shows which engine answered; <c>CopilotToolGate</c> allows
+/// all provider prefixes, because the
 /// repository hook also sees these calls.
 /// </summary>
 public sealed class DecisionToolSet
@@ -19,8 +20,8 @@ public sealed class DecisionToolSet
     public DecisionToolSet(IJevClient jev)
     {
         _jev = jev;
-        _prefix = jev.Provider == DecisionProvider.Laya ? "laya" : "jev";
-        _providerName = jev.Provider == DecisionProvider.Laya ? "Laya" : "Jev";
+        _prefix = SystemOneEndpoint.ProviderId(jev.Provider);
+        _providerName = SystemOneEndpoint.ProviderDisplayName(jev.Provider);
     }
 
     public string NoulToolName => $"{_prefix}_noul";

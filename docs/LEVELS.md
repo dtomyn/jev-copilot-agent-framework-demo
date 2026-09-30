@@ -2,7 +2,7 @@
 
 The progression intentionally mirrors the learning shape of `ten-levels-of-jev`: start with one small typed decision and end with a coding agent that knows when a System-One model is the right primitive.
 
-Every level runs unchanged against either provider - TypeSafe Jev or a local Laya container - because the difference is confined to `SystemOneEndpoint`. Add `--provider laya` or `--provider jev` to any command; see [LAYA.md](LAYA.md).
+Every level runs unchanged against any provider - TypeSafe Jev, a local Laya container, or a local Decider container - because provider differences are confined to `SystemOneEndpoint`. Add `--provider jev`, `--provider laya`, or `--provider decider` to any command; see [LAYA.md](LAYA.md) and [DECIDER.md](DECIDER.md).
 
 | Level | Demo | New idea | Runtime |
 |---:|---|---|---|

@@ -16,7 +16,7 @@ using Jev.Core;
 // shorter than the hook's `timeoutSec`, so a slow decision call produces an explicit `ask`
 // instead of letting the outer timeout hand the decision back to the default flow.
 //
-// The decision provider is selected by DECISION_PROVIDER (jev | laya) and the mode by
+// The decision provider is selected by DECISION_PROVIDER (jev | laya | decider) and the mode by
 // DECISION_MODE (off | mock | live | auto). The original JEV_* names remain accepted.
 
 const int DefaultDeadlineMs = 4000;

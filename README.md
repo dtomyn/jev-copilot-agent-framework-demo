@@ -2,7 +2,7 @@
 
 A .NET-first learning repo that starts with a single System-One probability and ends with that decision engine embedded in a GitHub Copilot coding-agent workflow.
 
-Two engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted, and **[Laya](https://github.com/NandhaKishorM/laya)**, open source and run locally in Docker. `laya-serve` speaks the same `POST /v1/systemone` wire protocol, so one client and one set of DTOs serve both; see [`docs/LAYA.md`](docs/LAYA.md).
+Three engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted; **[Laya](https://github.com/NandhaKishorM/laya)**, open source and local; and **[Decider](https://github.com/Mapika/decider)**, open source and local. Laya and Decider both expose the same `POST /v1/systemone` wire protocol, so one client and one set of DTOs serve all three; see [`docs/LAYA.md`](docs/LAYA.md) and [`docs/DECIDER.md`](docs/DECIDER.md).
 
 The structure is deliberately inspired by [`disler/ten-levels-of-jev`](https://github.com/disler/ten-levels-of-jev/tree/main/apps/ten-levels): each level adds one idea, the early levels run without a coding agent, and the later levels let the coding agent decide when Jev is useful. The Microsoft Agent Framework direction is informed by [`rwjdk/agent-framework-samples`](https://github.com/rwjdk/agent-framework-samples/tree/main/src/JevClassification), but this repo is an original implementation rather than a source port.
 
@@ -21,6 +21,7 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── LAYA.md                          # running the demo against local open-source Laya
+│   ├── DECIDER.md                       # Windows/Docker setup for local Decider
 │   ├── LEVELS.md
 │   ├── SECURITY.md
 │   ├── SOURCES.md
@@ -31,6 +32,8 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 │   ├── jev-hook.sh / jev-hook.ps1
 │   ├── laya-up.sh / laya-up.ps1         # start/stop the local Laya container
 │   ├── laya-down.sh / laya-down.ps1
+│   ├── decider-up.sh / decider-up.ps1   # build/start local Decider
+│   ├── decider-down.sh / decider-down.ps1
 │   ├── test-hook.sh / test-hook.ps1
 │   └── webui.sh / webui.ps1             # build and start the interactive demo UI
 ├── src/
@@ -73,21 +76,24 @@ For presenting, there is a browser UI that shows each level's real source next t
 
 It serves on <http://127.0.0.1:5088> and **defaults to Laya in mock mode**, so it needs no API key, no container and no network.
 
-To present against a real Laya container instead, add one switch:
+To present against a real local provider instead, add one switch:
 
 ```bash
-./scripts/webui.sh --laya   # macOS / Linux
-./scripts/webui.ps1 -Laya   # Windows PowerShell 7+
+./scripts/webui.sh --laya             # macOS / Linux, Laya
+./scripts/webui.sh --decider          # macOS / Linux, Decider CPU
+./scripts/webui.ps1 -Laya             # Windows PowerShell 7+, Laya
+./scripts/webui.ps1 -Decider          # Windows PowerShell 7+, Decider CPU
+./scripts/webui.ps1 -DeciderGpu       # Windows PowerShell 7+, Decider + NVIDIA GPU
 ```
 
-That starts `laya-serve` (via `laya-up`), waits for `/health`, sets `LAYA_BASE_URL` for the UI, and then starts it with Live enabled for Laya.
+The Laya path starts `laya-serve`; the Decider path builds/starts the local image under `docker/decider`. Both wait for `/health`, set the corresponding base URL for the UI, and then start it with Live enabled for that provider. You can also start Laya and Decider together to switch between them per request.
 A container that is already running is reused, not restarted.
 The script refuses to start if a UI is already listening on port 5088, because that instance keeps the environment it was started with and would still show Live disabled.
 It names the process holding the port and prints the command to stop it.
 Add `-Restart` (or `--restart`) to stop an earlier demo UI and start the new one in one go; it never stops a process that is not `Jev.WebUi`.
 
 - **Provider and mode switch per request**, from the top bar.
-  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL` and a running `laya-serve`.
+  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL`, and Decider needs `DECIDER_BASE_URL` (the helper scripts use `http://127.0.0.1:8011`).
   The Jev key can also be entered in the **Config** dialog, in a masked field. It is applied as `TYPESAFE_API_KEY` for the UI and every hook and level process it starts, exactly as if it had been set in the shell. It is held in memory only, never written to disk, and never sent back to the page.
   Everything else runs against the deterministic mock.
 - **Every scenario is editable.**
@@ -114,7 +120,8 @@ For Levels 1-5, 8, and 9 you only need the **.NET 10 SDK** (pinned by `global.js
 
 For a live decision engine, pick one:
 
-- **Laya (open source, local).** Run `./scripts/laya-up.ps1` (or `.sh`) to start `laya-serve` in Docker, then use `--provider laya --mode live`. No API key. Full instructions, including what differs from Jev, are in [`docs/LAYA.md`](docs/LAYA.md).
+- **Laya (open source, local).** Run `./scripts/laya-up.ps1` (or `.sh`) to start `laya-serve` in Docker, then use `--provider laya --mode live`. No API key. See [`docs/LAYA.md`](docs/LAYA.md).
+- **Decider (open source, local).** On Windows 11, run `.\scripts\decider-up.ps1` for CPU or `.\scripts\decider-up.ps1 -Gpu` for an NVIDIA GPU, then use `--provider decider --mode live`. The repo builds its own thin Docker image and defaults to `Mapika/decider-4b`; see [`docs/DECIDER.md`](docs/DECIDER.md).
 - **Jev (hosted).** Set a TypeSafe API key in `TYPESAFE_API_KEY` and use `--provider jev --mode live`. The client sends `POST https://api.typesafe.ai/v1/systemone` and defaults to `JEV_MODEL=jev-latest`.
 
 For Levels 6, 7, and 10, install and authenticate **GitHub Copilot CLI**. The repo pins `Microsoft.Agents.AI.GitHub.Copilot` 1.22.0 and uses `CopilotClient.AsAIAgent(...)` from Microsoft Agent Framework.
@@ -173,6 +180,20 @@ Run against a local Laya container (after `./scripts/laya-up.sh`):
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya --mode live
 ```
 
+Run against a local Decider container (after `./scripts/decider-up.sh` or `.\scripts\decider-up.ps1`):
+
+```bash
+export DECIDER_BASE_URL=http://127.0.0.1:8011
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider decider --mode live
+```
+
+PowerShell:
+
+```powershell
+$env:DECIDER_BASE_URL = "http://127.0.0.1:8011"
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider decider --mode live
+```
+
 Run against the hosted Jev API:
 
 ```bash
@@ -187,7 +208,7 @@ $env:TYPESAFE_API_KEY = "..."
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live
 ```
 
-`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, and to `jev` otherwise. `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
+`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, then to `decider` when `DECIDER_BASE_URL` is set, and to `jev` otherwise. `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
 
 ## Run the Microsoft Agent Framework + Copilot levels
 
@@ -203,7 +224,7 @@ Use `--mode live` instead, with whichever `--provider` you configured.
 
 These examples deliberately give the Agent Framework agent only decision function tools. They do **not** grant its built-in shell/file/URL permissions. That keeps the lesson focused and prevents the MAF sample from becoming a second, hidden execution-policy surface.
 
-One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*` spelling appears too, and the gate treats all six as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
+One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*` and `decider_*` spellings appear too, and the gate treats all nine names as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
 
 ## Run the native GitHub Copilot CLI hook
 
@@ -255,6 +276,26 @@ $env:DECISION_PROVIDER = "laya"; $env:DECISION_MODE = "live"; $env:LAYA_BASE_URL
 copilot
 ```
 
+### Live hook, local Decider
+
+macOS/Linux:
+
+```bash
+./scripts/decider-up.sh
+export DECISION_PROVIDER=decider DECISION_MODE=live DECIDER_BASE_URL=http://127.0.0.1:8011
+copilot
+```
+
+PowerShell:
+
+```powershell
+.\scripts\decider-up.ps1
+$env:DECISION_PROVIDER = "decider"; $env:DECISION_MODE = "live"; $env:DECIDER_BASE_URL = "http://127.0.0.1:8011"
+copilot
+```
+
+See [`docs/DECIDER.md`](docs/DECIDER.md) for the Windows GPU option and model sizing.
+
 ### Live hook, hosted Jev
 
 ```bash
@@ -267,7 +308,7 @@ copilot
 
 `DECISION_MODE=off` is the hook default. In that mode, deterministic hard-deny rules still apply, known read-only tools still pass, and other mutations become `ask`.
 
-`DECISION_MODE=auto` goes live only when the selected provider is configured (a key for Jev, a base URL for Laya); otherwise it behaves like `off`. The earlier `JEV_MODE` name is still read when `DECISION_MODE` is unset.
+`DECISION_MODE=auto` goes live only when the selected provider is configured (a key for Jev, a base URL for Laya or Decider); otherwise it behaves like `off`. The earlier `JEV_MODE` name is still read when `DECISION_MODE` is unset.
 
 ## Test the hook without starting Copilot
 
@@ -294,6 +335,7 @@ PASS  force-with-lease     -> ask
 PASS  jev-tool-with-secret -> ask
 PASS  jev-tool             -> allow
 PASS  laya-tool            -> allow
+PASS  decider-tool         -> allow
 PASS  read                 -> allow
 PASS  secret-read          -> ask
 ```
@@ -336,7 +378,7 @@ So `CopilotToolGate` applies layers in this order:
 
 The important design principle is **the model advises; code authorizes**.
 
-Step 4 gates on `max(p)` and never on the provider's own `confidence` field, because the two engines define that field differently: Jev as `(n*p_max - 1)/(n - 1)`, Laya as normalized entropy. A threshold carried across would silently loosen or tighten. See [`docs/LAYA.md`](docs/LAYA.md).
+Step 4 gates on `max(p)` and never on the provider's own `confidence` field, because that field has provider-specific semantics: Laya uses normalized entropy, Jev Choice and Decider Choice use the TypeSafe formula, and Decider Score uses its score-distance formula. A threshold carried across could silently loosen or tighten. See [`docs/LAYA.md`](docs/LAYA.md) and [`docs/DECIDER.md`](docs/DECIDER.md).
 
 ## Hook failure semantics you should know
 
@@ -346,11 +388,11 @@ GitHub's current Copilot hook contract matters for security design:
 - A hook **timeout is fail-open to Copilot's normal permission flow**, not an automatic deny.
 - Under Copilot cloud agent there is no person to answer `ask`, so `ask` is treated as `deny`.
 
-Because a timeout is the one failure mode that fails open, the hook enforces its **own** deadline (`DECISION_HOOK_DEADLINE_MS`, default 4000 ms) below the hook's `timeoutSec` of 8, so a slow decision returns an explicit `ask` instead of letting Copilot fall back to its default flow. The live HTTP call is additionally capped at two seconds - which matters most on a cold Laya container, whose first request loads a checkpoint - and ordinary provider/client exceptions become an explicit `ask` with exit code zero. See [`docs/SECURITY.md`](docs/SECURITY.md) before adapting the pattern to production.
+Because a timeout is the one failure mode that fails open, the hook enforces its **own** deadline (`DECISION_HOOK_DEADLINE_MS`, default 4000 ms) below the hook's `timeoutSec` of 8, so a slow decision returns an explicit `ask` instead of letting Copilot fall back to its default flow. The live HTTP call is additionally capped at two seconds - which matters most on a cold local model container, whose first request may load a large checkpoint - and ordinary provider/client exceptions become an explicit `ask` with exit code zero. See [`docs/SECURITY.md`](docs/SECURITY.md) before adapting the pattern to production.
 
 ## Wire shape used here
 
-Both providers accept one `state`, an optional model name, and named typed questions at `POST /v1/systemone`. This repo implements the three primitives:
+All three providers accept one `state`, an optional model name, and named typed questions at `POST /v1/systemone`. This repo implements the three primitives:
 
 ```json
 {
@@ -379,7 +421,7 @@ Both providers accept one `state`, an optional model name, and named typed quest
 }
 ```
 
-The `model` field is omitted for Laya, which lets its router pick a checkpoint per request and report the choice back in a `routing` block. The client is intentionally tiny and lives in [`src/Jev.Core/SystemOneHttpClient.cs`](src/Jev.Core/SystemOneHttpClient.cs), so the wire contract is easy to inspect.
+The `model` field is omitted for Laya, which lets its router pick a checkpoint per request and report the choice back in a `routing` block, and for Decider, whose server process owns the model selection through `DECIDER_MODEL`. The client is intentionally tiny and lives in [`src/Jev.Core/SystemOneHttpClient.cs`](src/Jev.Core/SystemOneHttpClient.cs), so the wire contract is easy to inspect.
 
 ## Suggested demo script
 
@@ -387,7 +429,7 @@ For a 10-15 minute walkthrough:
 
 1. Run Levels 1-4 in mock mode to introduce Noul/Choice/Score and parallel questions.
 2. Run Level 5 to show that policy stays in C#.
-3. Re-run Level 4 with `--provider laya --mode live` against the local container: same code, same DTOs, a different engine, and a visibly different `confidence` next to an identical `answer` confidence.
+3. Re-run Level 4 with `--provider laya --mode live` and then `--provider decider --mode live`: same code and DTOs, three interchangeable engines, and provider-specific `confidence` next to the portable `AnswerConfidence`.
 4. Run Level 7 with an authenticated Copilot runtime to show the decision primitives as MAF function tools.
 5. Run `./scripts/test-hook.sh` to show the exact native `preToolUse` JSON contract.
 6. Start `DECISION_MODE=mock copilot`, make Copilot inspect a file, edit a file, and propose a force push; point out `allow`, `ask`, and `deny`.
@@ -395,11 +437,11 @@ For a 10-15 minute walkthrough:
 
 ## Production hardening ideas
 
-This repo intentionally keeps the sample readable. The deterministic rules in `src/Jev.Core/RiskHeuristics.cs` are anchored regular expressions rather than substring tests, and each one is pinned by a self-test in both directions, but a regex still is not a shell parser: `rm $VAR` and base64-encoded payloads are outside its reach. Before using the pattern as organizational policy, consider signed/versioned policy distribution, real shell/command-line parsing, dedicated secret redaction, audit/event logging, latency and error telemetry, organization-specific allow/deny rules, sandboxing, policy tests derived from real tool traces, and a clear decision on whether a remote call is permitted for the data being evaluated - which is the strongest argument for the self-hosted Laya path. Thresholds here are illustrative: re-fit them against the provider and checkpoint you actually deploy.
+This repo intentionally keeps the sample readable. The deterministic rules in `src/Jev.Core/RiskHeuristics.cs` are anchored regular expressions rather than substring tests, and each one is pinned by a self-test in both directions, but a regex still is not a shell parser: `rm $VAR` and base64-encoded payloads are outside its reach. Before using the pattern as organizational policy, consider signed/versioned policy distribution, real shell/command-line parsing, dedicated secret redaction, audit/event logging, latency and error telemetry, organization-specific allow/deny rules, sandboxing, policy tests derived from real tool traces, and a clear decision on whether a remote call is permitted for the data being evaluated - which is a strong argument for a self-hosted Laya or Decider path. Thresholds here are illustrative: re-fit them against the provider and checkpoint you actually deploy.
 
 ## Sources and compatibility
 
-See [`docs/SOURCES.md`](docs/SOURCES.md). The implementation was checked against the GitHub Copilot CLI hook documentation, the GitHub Copilot skill/custom-agent documentation, the Microsoft Agent Framework GitHub Copilot provider docs, the current TypeSafe OpenAPI document, Laya's HTTP API documentation and server source, and the current NuGet package metadata while this demo was assembled in September 2026.
+See [`docs/SOURCES.md`](docs/SOURCES.md). The implementation was checked against the GitHub Copilot CLI hook documentation, the GitHub Copilot skill/custom-agent documentation, the Microsoft Agent Framework GitHub Copilot provider docs, the current TypeSafe OpenAPI document, Laya's HTTP API documentation and server source, Decider's model/package/server documentation, and the current NuGet package metadata while this demo was assembled in September 2026.
 
-MIT licensed. This is an independent demo and is not an official TypeSafe, Laya, GitHub, or Microsoft project.
+MIT licensed. This is an independent demo and is not an official TypeSafe, Laya, Decider, GitHub, or Microsoft project.
 # jev-copilot-agent-framework-demo

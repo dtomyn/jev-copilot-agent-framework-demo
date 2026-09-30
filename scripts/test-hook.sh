@@ -5,12 +5,12 @@ cd "$root"
 
 dotnet build src/Jev.CopilotHook/Jev.CopilotHook.csproj -c Release
 
-# Every sample is replayed against both providers, and `expectedDecision` is shared: the gate
+# Every sample is replayed against all providers, and `expectedDecision` is shared: the gate
 # thresholds on max(p), so the provider must change the reported reason and nothing else. A
 # sample that only passes on one provider means provider-specific behaviour leaked out of
 # SystemOneEndpoint into policy code.
 status=0
-for provider in jev laya; do
+for provider in jev laya decider; do
   for sample in samples/hooks/*.json; do
     name="$(basename "$sample" .json)"
     expected="$(grep -o '"expectedDecision":"[a-z]*"' "$sample" | cut -d'"' -f4)"

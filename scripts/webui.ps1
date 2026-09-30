@@ -4,8 +4,8 @@
 # TenLevels.Jev, which downloads the GitHub Copilot runtime from registry.npmjs.org: build that
 # one only when the Copilot-backed levels (6, 7, 10) are going to be run from the browser.
 #
-# With -Laya it also starts the local Laya container (scripts/laya-up.ps1), waits for /health, and
-# points the UI at it, so live mode is available for Laya from the first page load.
+# With -Laya and/or -Decider it can also start the local model containers, wait for /health, and
+# point the UI at them so live mode is available from the first page load.
 [CmdletBinding()]
 param(
     # Skip the build. Use when the solution is already built and the demo is about to start.
@@ -21,6 +21,12 @@ param(
     # Start laya-serve in Docker first and enable live mode for Laya. See docs/LAYA.md.
     [switch]$Laya,
 
+    # Start Mapika Decider in the repository's Docker image. See docs/DECIDER.md.
+    [switch]$Decider,
+
+    # Start Decider with NVIDIA GPU access. Implies -Decider.
+    [switch]$DeciderGpu,
+
     # Stop a UI that is already running on the port, then start this one. Only ever stops a
     # Jev.WebUi process; anything else holding the port is reported and left alone.
     [switch]$Restart
@@ -30,6 +36,7 @@ $ErrorActionPreference = "Stop"
 $repository = Split-Path -Parent $PSScriptRoot
 $port = 5088
 $url = "http://127.0.0.1:$port"
+if ($DeciderGpu) { $Decider = $true }
 
 function Test-PortFree {
     $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
@@ -55,7 +62,7 @@ function Test-IsWebUi($process) {
 }
 
 # Checked first, because an instance that is already running keeps the environment it started
-# with: it would not see -Laya, and this one would only fail to bind after the build and the wait.
+# with: it would not see newly enabled local providers, and this one would only fail to bind after the build and the wait.
 if (-not (Test-PortFree)) {
     $owners = @(Get-PortOwner)
     $isOnlyWebUi = $owners.Count -gt 0 -and @($owners | Where-Object { -not (Test-IsWebUi $_) }).Count -eq 0
@@ -86,7 +93,7 @@ if (-not (Test-PortFree)) {
 
         if ($isOnlyWebUi) {
             Write-Host "That is an earlier demo UI. It keeps the environment it was started with, so it"
-            Write-Host "will not pick up -Laya or a changed LAYA_BASE_URL. Stop it and start this one:"
+            Write-Host "will not pick up -Laya/-Decider or changed provider URLs. Stop it and start this one:"
             Write-Host ""
             Write-Host "  ./scripts/webui.ps1 $(@($PSBoundParameters.Keys | ForEach-Object { "-$_" }) + '-Restart' -join ' ')"
             Write-Host ""
@@ -134,6 +141,16 @@ if ($Laya) {
     $env:LAYA_BASE_URL = "http://${layaBind}:${layaPort}"
 }
 
+if ($Decider) {
+    $deciderArgs = @()
+    if ($DeciderGpu) { $deciderArgs += "-Gpu" }
+    & (Join-Path $PSScriptRoot "decider-up.ps1") @deciderArgs
+    if ($LASTEXITCODE -ne 0) { throw "decider.serve did not start." }
+
+    $deciderPort = if ($env:DECIDER_HOST_PORT) { $env:DECIDER_HOST_PORT } else { "8011" }
+    $env:DECIDER_BASE_URL = "http://127.0.0.1:${deciderPort}"
+}
+
 if (-not $NoBrowser) {
     # Started before the server blocks, and deliberately not waited on: the page retries its own
     # API calls, so a browser that arrives a second early simply loads a moment later.
@@ -142,12 +159,11 @@ if (-not $NoBrowser) {
 
 Write-Host ""
 Write-Host "Presentation UI: $url"
-if ($Laya) {
-    Write-Host "Laya live mode is available: requests go to $env:LAYA_BASE_URL."
-}
-else {
+if ($Laya) { Write-Host "Laya live mode is available: requests go to $env:LAYA_BASE_URL." }
+if ($Decider) { Write-Host "Decider live mode is available: requests go to $env:DECIDER_BASE_URL." }
+if (-not $Laya -and -not $Decider) {
     Write-Host "Provider defaults to Laya in mock mode, which needs no API key and no network."
-    Write-Host "Pass -Laya to start the local Laya container and enable live mode."
+    Write-Host "Pass -Laya and/or -Decider (optionally -DeciderGpu) to enable local live providers."
 }
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""

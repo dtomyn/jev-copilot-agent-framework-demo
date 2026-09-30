@@ -24,11 +24,13 @@ if (args.Contains("--help", StringComparer.OrdinalIgnoreCase) || args.Contains("
           --level <n>             Run one level (default: 1).
           --all                   Run every level that does not need a Copilot runtime.
           --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
-          --provider <jev|laya>   Decision engine (default: DECISION_PROVIDER, else laya when
-                                  LAYA_BASE_URL is set, else jev).
+          --provider <jev|laya|decider>
+                                  Decision engine (default: DECISION_PROVIDER, else laya when
+                                  LAYA_BASE_URL is set, decider when DECIDER_BASE_URL is set,
+                                  else jev).
           --mode <mock|live>      How to reach it (default: mock). '--jev' is accepted as an alias.
-                                  'live' needs TYPESAFE_API_KEY for jev, or a running laya-serve
-                                  for laya (see docs/LAYA.md).
+                                  'live' needs TYPESAFE_API_KEY for jev, a running laya-serve
+                                  for laya, or decider.serve for decider (see docs/DECIDER.md).
         """);
     return 0;
 }
