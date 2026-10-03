@@ -971,13 +971,22 @@
 
       const contract = h('div', { class: 'callout ' + (response.contractSatisfied ? '' : 'bad'), text: response.contractNote });
 
+      // `expectedDecision` is what scripts/test-hook.* asserts, and those replay every sample with
+      // DECISION_MODE=mock. In another mode a model-decided sample may legitimately answer
+      // differently, so only a mock run can fail the comparison.
+      const mockRun = response.environment.DECISION_MODE === 'mock';
+      const verdict = expected === response.decision
+        ? h('span', { class: 'ok', text: '✓ match' })
+        : mockRun
+          ? h('span', { class: 'no', text: '✗ mismatch' })
+          : h('span', { class: 'muted', text: 'differs from the mock expectation, which only a mock run checks' });
       const match = expected
         ? h('div', { class: 'matchline' }, [
-          h('span', { class: 'muted', text: 'Sample expects' }),
+          h('span', { class: 'muted', text: mockRun ? 'Sample expects' : 'Sample expects (in mock mode)' }),
           h('span', { class: 'pill ' + decisionClass(expected), text: expected }),
           h('span', { class: 'muted', text: 'hook returned' }),
           h('span', { class: 'pill ' + decisionClass(response.decision), text: response.decision || 'nothing' }),
-          expected === response.decision ? h('span', { class: 'ok', text: '✓ match' }) : h('span', { class: 'no', text: '✗ mismatch' })
+          verdict
         ])
         : null;
 

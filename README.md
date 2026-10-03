@@ -8,6 +8,20 @@ The structure is deliberately inspired by [`disler/ten-levels-of-jev`](https://g
 
 This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 10 except for tiny cross-platform hook wrapper scripts.
 
+## Demo video
+
+A three-minute walkthrough of the [interactive demo UI](#the-interactive-demo-ui), recorded against live TypeSafe Jev.
+It covers all ten levels, including the real GitHub Copilot agent on Levels 7 and 10 and the real `preToolUse` hook process on Level 8.
+
+<!--
+  DEMO-VIDEO PLACEHOLDER
+  To embed the video: edit this file on github.com, drag artifacts/jev-demo.mp4 onto the line
+  below this comment, wait for the upload to finish, and commit. GitHub inserts a
+  https://github.com/user-attachments/assets/... URL on its own line, which renders as a player.
+  Then delete this comment.
+-->
+
+
 ## What you get
 
 ```text
@@ -497,4 +511,3 @@ See [`docs/SOURCES.md`](docs/SOURCES.md). The implementation was checked against
 The Clef integration was checked against Cloudflare's Workers AI model page, its input and output JSON schemas, and the Hugging Face model card in October 2026.
 
 MIT licensed. This is an independent demo and is not an official TypeSafe, Laya, Decider, Cloudflare, GitHub, or Microsoft project.
-# jev-copilot-agent-framework-demo
