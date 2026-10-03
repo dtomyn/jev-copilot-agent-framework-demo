@@ -17,7 +17,7 @@ try {
     # thresholds on max(p), so the provider must change the reported reason and nothing else. A
     # sample that only passes on one provider means provider-specific behaviour leaked out of
     # SystemOneEndpoint into policy code.
-    foreach ($provider in @("jev", "laya", "decider")) {
+    foreach ($provider in @("jev", "laya", "decider", "clef")) {
         $env:DECISION_PROVIDER = $provider
         foreach ($sample in Get-ChildItem "samples/hooks/*.json") {
             $payload = Get-Content -Raw $sample.FullName

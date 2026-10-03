@@ -1,6 +1,6 @@
 # Running with Decider
 
-[Decider](https://github.com/Mapika/decider) is a local, open-source System-One decision engine. Its HTTP server intentionally exposes the same `POST /v1/systemone` request/response shape used by Jev, so this repository uses the same `SystemOneHttpClient`, DTOs, policy gate, and ten levels for all three providers.
+[Decider](https://github.com/Mapika/decider) is a local, open-source System-One decision engine. Its HTTP server intentionally exposes the same `POST /v1/systemone` request/response shape used by Jev, so this repository uses the same `SystemOneHttpClient`, DTOs, policy gate, and ten levels for all four providers (Jev, Laya, Decider, and [Clef](CLEF.md)).
 
 This repository targets the Hugging Face model `Mapika/decider-4b` by default. The model is selected by the Decider server (`DECIDER_MODEL`), not by the request body.
 
@@ -90,7 +90,7 @@ Decider's server is wire-compatible with Jev for `POST /v1/systemone`. The appli
 - Decider's `x_p_max` is read as the provider-independent `AnswerConfidence` used by policy thresholds;
 - Decider's own `confidence` value is retained for display, but policy never thresholds on it.
 
-That last point matters. Choice confidence is TypeSafe-compatible, while Score confidence uses Decider's score-distance formula. The policy gate always thresholds on `max(p)` instead, so the same code-owned thresholds have the same meaning when switching among Jev, Laya, and Decider.
+That last point matters. Choice confidence is TypeSafe-compatible, while Score confidence uses Decider's score-distance formula. The policy gate always thresholds on `max(p)` instead, so the same code-owned thresholds have the same meaning when switching among Jev, Laya, Decider, and Clef.
 
 ## Model size and GGUF
 

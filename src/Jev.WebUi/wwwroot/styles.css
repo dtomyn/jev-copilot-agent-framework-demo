@@ -110,7 +110,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 /* On a narrow window the controls matter more than the sentence explaining them; the dot keeps
    its title attribute, so the same text is still one hover away. */
-@media (max-width: 1240px) { .status-text { display: none; } }
+@media (max-width: 1560px) { .status-text { display: none; } }
 
 /* ------------------------------------------------------------------ shell */
 

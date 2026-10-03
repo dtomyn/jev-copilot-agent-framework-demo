@@ -242,7 +242,10 @@ explaining what is really going on.
   editable. It defaults to <b>Laya in mock mode</b>, so it needs no API key, no container and no
   network. Add <code>-Laya</code> (or <code>--laya</code>) to start Laya, or
   <code>-Decider</code>/<code>-DeciderGpu</code> (or <code>--decider</code>/<code>--decider-gpu</code>)
-  to build/start Decider on port 8011. For live Jev, enter a TypeSafe API key under <b>Config</b>
+  to build/start Decider on port 8011, or <code>-Clef</code>/<code>-ClefGpu</code> (or
+  <code>--clef</code>/<code>--clef-gpu</code>) to build/start Clef on port 8012. Hosted Clef needs no
+  switch, only <code>CLOUDFLARE_ACCOUNT_ID</code> and <code>CLOUDFLARE_API_TOKEN</code> in the environment.
+  For live Jev, enter a TypeSafe API key under <b>Config</b>
   in the UI's top bar; it is held in memory for that UI only.</p>
   <p>The two pages are wired together. Each level section below carries a
   <span class="runlive" style="cursor:default">Run live</span> link that opens that level in the UI,
@@ -255,11 +258,13 @@ explaining what is really going on.
 <p>
 A System-One decision engine answers <em>bounded semantic questions</em> very fast: a yes/no
 probability, a one-of-N choice, or a position on an ordered rubric. It is deliberately not a planner
-and not a code generator. Three providers are supported here and are interchangeable: the hosted TypeSafe
-Jev API, <a href="https://github.com/NandhaKishorM/laya">Laya</a>, and
-<a href="https://github.com/Mapika/decider">Decider</a>. The two open-source providers run locally and
-all three speak the same wire protocol. Step 11 installs Laya from scratch; <code>docs/DECIDER.md</code>
-shows the Windows/Docker Decider path; step 12 proves the provider switch changes no policy decision.
+and not a code generator. Four providers are supported here and are interchangeable: the hosted TypeSafe
+Jev API, <a href="https://github.com/NandhaKishorM/laya">Laya</a>,
+<a href="https://github.com/Mapika/decider">Decider</a>, and Cloudflare's
+<a href="https://developers.cloudflare.com/workers-ai/models/clef-flash/">Clef</a>. Laya and Decider run
+locally, Clef runs either hosted on Workers AI or locally, and all four speak the same wire protocol.
+Step 11 installs Laya from scratch; <code>docs/DECIDER.md</code> shows the Windows/Docker Decider path and
+<code>docs/CLEF.md</code> both Clef paths; step 12 proves the provider switch changes no policy decision.
 </p>
 <p>
 This repository takes that primitive and walks it up ten levels until it is sitting inside a real
@@ -490,11 +495,13 @@ state in a single round trip.
 </p>
 
 <p>
-Three engines answer this exact request: hosted <b>TypeSafe Jev</b>, open-source <b>Laya</b>, and
-open-source <b>Decider</b>. Both local servers implement the same <code>POST /v1/systemone</code>
-contract on purpose. Pick one with <code>--provider</code>; everything else in this tutorial is identical.
-Step 11 installs Laya locally, <code>docs/DECIDER.md</code> covers Decider, and step 12 compares the
-provider semantics side by side.
+Four engines answer this exact request: hosted <b>TypeSafe Jev</b>, open-source <b>Laya</b>,
+open-source <b>Decider</b>, and Cloudflare's <b>Clef</b>. The local servers implement the same
+<code>POST /v1/systemone</code> contract on purpose; hosted Clef takes the same body at Cloudflare's
+Workers AI route and wraps the answer in Cloudflare's envelope, which the client unwraps.
+Pick one with <code>--provider</code>; everything else in this tutorial is identical.
+Step 11 installs Laya locally, <code>docs/DECIDER.md</code> covers Decider, <code>docs/CLEF.md</code>
+covers Clef, and step 12 compares the provider semantics side by side.
 </p>
 
 <div class="code">
@@ -802,7 +809,8 @@ routing=mock (no checkpoint loaded)</code></pre>
   <em>byte-for-byte identical</em>. Only <code>confidence=</code> moved, from 0.64 to 0.35 and from
   0.84 to 0.64, because provider <code>confidence</code> can use different formulas over the same
   distribution. Decider Choice follows the TypeSafe-compatible formula, while Decider Score has its own
-  TypeSafe-compatible score-distance formula. Anything that thresholds on <code>confidence=</code> silently demands a different
+  TypeSafe-compatible score-distance formula, and Clef reports <code>max(p)</code> itself, so its
+  <code>confidence=</code> equals <code>answer=</code>. Anything that thresholds on <code>confidence=</code> silently demands a different
   amount of evidence per provider. Everything in this repository thresholds on
   <code>answer=</code> instead.</p>
 </div>
@@ -868,7 +876,7 @@ bash     -&gt; <span class="bad">Deny</span>  | Deterministic policy matched a d
   <div class="layer l-deny"><div class="n">1</div><div class="t"><b>Deterministic hard deny</b><span>Anchored regexes for explicitly destructive commands. Returns <b>deny</b>. Jev is never called.</span></div></div>
   <div class="layer l-ask"><div class="n">2</div><div class="t"><b>Credential stop</b><span>Anything that looks like secret material returns <b>ask</b> and is never forwarded to an external API.</span></div></div>
   <div class="layer l-allow"><div class="n">3</div><div class="t"><b>Read-only fast path</b><span>Known non-mutating tool names return <b>allow</b> with no model call and no latency.</span></div></div>
-  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host decision-tool exemption</b><span>All nine names - the <code>jev_*</code>, <code>laya_*</code>, and <code>decider_*</code> Noul / Choice / Score tools - return a judgment and cannot mutate anything.</span></div></div>
+  <div class="layer l-allow"><div class="n">4</div><div class="t"><b>Host decision-tool exemption</b><span>All twelve names - the <code>jev_*</code>, <code>laya_*</code>, <code>decider_*</code>, and <code>clef_*</code> Noul / Choice / Score tools - return a judgment and cannot mutate anything.</span></div></div>
   <div class="layer l-jev"><div class="n">5</div><div class="t"><b>Provider semantic classification</b><span>The ambiguous middle becomes a bounded Choice over allow / ask / deny, answered by whichever engine is selected.</span></div></div>
   <div class="layer l-jev"><div class="n">6</div><div class="t"><b>Code-owned thresholds</b><span>C# literals turn probability and confidence into a decision.</span></div></div>
   <div class="layer l-ask"><div class="n">7</div><div class="t"><b>Default: ask a human</b><span>Everything that did not clear a threshold escalates. Ask is the fallback, never allow.</span></div></div>
@@ -895,7 +903,7 @@ return new GateResult(GateDecision.Ask, $"{ProviderName} did not clear the confi
 <div class="callout good">
   <strong>Two lines here carry the entire provider story</strong>
   <p><code>answer.AnswerConfidence</code> is <code>max(p)</code>, which is normalized the same way
-  across all three providers. <code>answer.Confidence</code> - the field that arrives on the wire and looks like the obvious
+  across all four providers. <code>answer.Confidence</code> - the field that arrives on the wire and looks like the obvious
   one to read - is <em>not</em> comparable across providers and appears nowhere in this file.
   <code>ProviderName</code> is the only other provider-aware thing in the gate, and it only affects
   the human-readable reason string, which is why the same run under Laya reads
@@ -1008,6 +1016,8 @@ wrong in <em>both</em> directions, which is why every rule is an anchored regex:
 <span class="ok">PASS</span>  jev stays the default and still demands a key
 <span class="ok">PASS</span>  a laya request omits model and sends no bearer token when none is configured
 <span class="ok">PASS</span>  a laya response contributes answer_confidence and routing
+<span class="ok">PASS</span>  CLEF_BASE_URL wins over cloudflare credentials, so a local setup never calls out
+<span class="ok">PASS</span>  a hosted clef request uses the model route, a bearer token, and the model field
 <span class="ok">PASS</span>  the gate thresholds on max(p), not on the provider's confidence field
 <span class="ok">PASS</span>  an undecided laya answer still escalates to a human
 <span class="ok">PASS</span>  switching provider does not change a single gate decision in mock mode
@@ -1015,9 +1025,9 @@ wrong in <em>both</em> directions, which is why every rule is an anchored regex:
 <span class="ok">All self-tests passed.</span></code></pre>
 </div>
 
-<p>Fifty-eight checks run in well under a second with no network and no test framework. The last nine
-above are the provider suite: they pin that selecting Laya changes the endpoint, the credentials and
-the <code>model</code> field, and changes <em>no gate decision at all</em>.</p>
+<p>Seventy-three checks run in well under a second with no network and no test framework. The last eleven
+above are from the provider suite: they pin that selecting Laya or Clef changes the endpoint, the credentials and
+the <code>model</code> field, that a local Clef never falls back to Cloudflare, and that switching provider changes <em>no gate decision at all</em>.</p>
 
 <div class="notes" data-level="5 9">
   <div class="label">Presenter note</div>
@@ -1101,18 +1111,25 @@ your shell has set.</p>
 </div>
 
 <div class="code">
-  <div class="code-head">output<div class="spacer"></div></div>
-<pre><code><span class="ok">PASS</span>  curl-pipe-shell      -&gt; deny
-<span class="ok">PASS</span>  dotnet-format        -&gt; ask
-<span class="ok">PASS</span>  edit                 -&gt; ask
-<span class="ok">PASS</span>  force-push           -&gt; deny
-<span class="ok">PASS</span>  force-with-lease     -&gt; ask
-<span class="ok">PASS</span>  jev-tool-with-secret -&gt; ask
-<span class="ok">PASS</span>  jev-tool             -&gt; allow
-<span class="ok">PASS</span>  laya-tool            -&gt; allow
-<span class="ok">PASS</span>  read                 -&gt; allow
-<span class="ok">PASS</span>  secret-read          -&gt; ask</code></pre>
+  <div class="code-head">output (first provider of four)<div class="spacer"></div></div>
+<pre><code><span class="ok">PASS</span>  [jev] clef-tool -&gt; allow
+<span class="ok">PASS</span>  [jev] curl-pipe-shell -&gt; deny
+<span class="ok">PASS</span>  [jev] decider-tool -&gt; allow
+<span class="ok">PASS</span>  [jev] dotnet-format -&gt; ask
+<span class="ok">PASS</span>  [jev] edit -&gt; ask
+<span class="ok">PASS</span>  [jev] force-push -&gt; deny
+<span class="ok">PASS</span>  [jev] force-with-lease -&gt; ask
+<span class="ok">PASS</span>  [jev] jev-tool-with-secret -&gt; ask
+<span class="ok">PASS</span>  [jev] jev-tool -&gt; allow
+<span class="ok">PASS</span>  [jev] laya-tool -&gt; allow
+<span class="ok">PASS</span>  [jev] read -&gt; allow
+<span class="ok">PASS</span>  [jev] secret-read -&gt; ask
+...</code></pre>
 </div>
+
+<p>The same twelve samples are then replayed under <code>laya</code>, <code>decider</code>, and
+<code>clef</code> with the same expected decisions: switching provider may change the reason string,
+never the decision.</p>
 
 <h3>Pipe a single payload by hand</h3>
 
@@ -1280,8 +1297,8 @@ copilot</code></pre>
 <tbody>
 <tr><td><code>off</code> <em>(default)</em></td><td>Deterministic rules only; every other mutation becomes <span class="pill ask">ask</span></td><td>None</td><td>Safest baseline</td></tr>
 <tr><td><code>mock</code></td><td>Deterministic local simulator</td><td>None</td><td>Demos, offline, CI</td></tr>
-<tr><td><code>live</code></td><td>The selected provider, 2-second HTTP cap</td><td>api.typesafe.ai, or localhost for Laya/Decider</td><td>Real evaluation</td></tr>
-<tr><td><code>auto</code></td><td><code>live</code> when the provider is configured (a key for Jev, a base URL for Laya or Decider), otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
+<tr><td><code>live</code></td><td>The selected provider, 2-second HTTP cap</td><td>api.typesafe.ai, api.cloudflare.com for hosted Clef, or localhost for Laya/Decider/local Clef</td><td>Real evaluation</td></tr>
+<tr><td><code>auto</code></td><td><code>live</code> when the provider is configured (a key for Jev, a base URL for Laya or Decider, and for Clef either <code>CLEF_BASE_URL</code> or both Cloudflare variables), otherwise <code>off</code></td><td>Conditional</td><td>Shared configs</td></tr>
 </tbody>
 </table>
 
@@ -1403,14 +1420,15 @@ cannot confuse them either:</p>
 </div>
 
 <div class="callout danger">
-  <strong>This is why the hook allow-lists nine names, not three</strong>
+  <strong>This is why the hook allow-lists twelve names, not three</strong>
   <p>The Copilot runtime these levels spawn runs in this repository's working directory, so it loads
   this repository's <code>.github/hooks/jev-policy.json</code> and the hook sees the agent's own
   decision calls. The hook is a separate process and cannot know which provider the agent was
   started with, so <code>CopilotToolGate</code> allows <code>jev_noul</code> /
   <code>jev_choice</code> / <code>jev_score</code>, <code>laya_noul</code> /
-  <code>laya_choice</code> / <code>laya_score</code>, and <code>decider_noul</code> /
-  <code>decider_choice</code> / <code>decider_score</code>. Drop any set and levels 6, 7, and 10 fail
+  <code>laya_choice</code> / <code>laya_score</code>, <code>decider_noul</code> /
+  <code>decider_choice</code> / <code>decider_score</code>, and <code>clef_noul</code> /
+  <code>clef_choice</code> / <code>clef_score</code>. Drop any set and levels 6, 7, and 10 fail
   for that provider with a fail-closed hook error.</p>
 </div>
 
@@ -2007,13 +2025,23 @@ cannot phone home even in principle. Save it as
   <a href="DECIDER.md"><code>docs/DECIDER.md</code></a>.</p>
 </div>
 
+<div class="callout good">
+  <strong>Windows 11: Clef runs hosted or local</strong>
+  <p>Clef needs no second .NET client either. On an ordinary laptop, use the hosted Cloudflare Workers AI
+  path: set <code>CLOUDFLARE_ACCOUNT_ID</code> and <code>CLOUDFLARE_API_TOKEN</code> and choose
+  <code>--provider clef</code>; the state is then sent to Cloudflare. On a workstation with a 24 GB+
+  NVIDIA GPU, <code>.\scripts\clef-up.ps1 -Gpu</code> builds and starts a local container on
+  <code>127.0.0.1:8012</code>; set <code>CLEF_BASE_URL=http://127.0.0.1:8012</code>, which wins over the
+  Cloudflare credentials. Both paths are in <a href="CLEF.md"><code>docs/CLEF.md</code></a>.</p>
+</div>
+
 <hr>
 
 <h2 id="step12"><span class="stepnum">12</span>Prove the provider switch changes nothing that matters</h2>
 
 <p>The claim this architecture makes is narrow and checkable: <em>selecting a different engine changes
-provider metadata but not the policy meaning of a probability.</em> Run the four commands below. The
-three mock columns use identical probability distributions; the live Laya column proves a real model
+provider metadata but not the policy meaning of a probability.</em> Run the five commands below. The
+four mock columns use identical probability distributions; the live Laya column proves a real model
 can move the evidence without moving policy ownership into the model.</p>
 
 <div class="code">
@@ -2021,25 +2049,27 @@ can move the evidence without moving policy ownership into the model.</p>
 <pre><code>dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev     --mode mock
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya    --mode mock
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider decider --mode mock
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider clef    --mode mock
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider laya    --mode live</code></pre>
 </div>
 
 <table>
-<thead><tr><th></th><th>jev / mock</th><th>laya / mock</th><th>decider / mock</th><th>laya / live</th></tr></thead>
+<thead><tr><th></th><th>jev / mock</th><th>laya / mock</th><th>decider / mock</th><th>clef / mock</th><th>laya / live</th></tr></thead>
 <tbody>
-<tr><td><code>route</code> choice</td><td>ask</td><td>ask</td><td>ask</td><td>allow</td></tr>
-<tr><td><code>answer=</code> (max p)</td><td>0.76</td><td><b>0.76</b></td><td><b>0.76</b></td><td>0.53</td></tr>
-<tr><td><code>confidence=</code></td><td>0.64</td><td><b>0.35</b></td><td>0.64</td><td>0.19</td></tr>
-<tr><td><code>risk</code> score</td><td>1.56</td><td><b>1.56</b></td><td><b>1.56</b></td><td>1.10</td></tr>
-<tr><td>Gate decision (level 5)</td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td></tr>
-<tr><td><code>model=</code></td><td>mock-jev</td><td>mock-laya</td><td>mock-decider</td><td>laya-rl-agent</td></tr>
-<tr><td><code>routing=</code></td><td>(none)</td><td>mock placeholder</td><td>(none)</td><td>english</td></tr>
+<tr><td><code>route</code> choice</td><td>ask</td><td>ask</td><td>ask</td><td>ask</td><td>allow</td></tr>
+<tr><td><code>answer=</code> (max p)</td><td>0.76</td><td><b>0.76</b></td><td><b>0.76</b></td><td><b>0.76</b></td><td>0.53</td></tr>
+<tr><td><code>confidence=</code></td><td>0.64</td><td><b>0.35</b></td><td>0.64</td><td><b>0.76</b></td><td>0.19</td></tr>
+<tr><td><code>risk</code> score</td><td>1.56</td><td><b>1.56</b></td><td><b>1.56</b></td><td><b>1.56</b></td><td>1.10</td></tr>
+<tr><td>Gate decision (level 5)</td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td><td><span class="pill ask">ask</span></td></tr>
+<tr><td><code>model=</code></td><td>mock-jev</td><td>mock-laya</td><td>mock-decider</td><td>mock-clef</td><td>laya-rl-agent</td></tr>
+<tr><td><code>routing=</code></td><td>(none)</td><td>mock placeholder</td><td>(none)</td><td>(none)</td><td>english</td></tr>
 </tbody>
 </table>
 
-<p>The three mock columns have the same <code>answer=</code>, score, and gate decision. Laya's display
+<p>The four mock columns have the same <code>answer=</code>, score, and gate decision. Laya's display
 <code>confidence=</code> differs because it is normalized entropy; Decider Choice follows the same
-TypeSafe-compatible Choice formula as Jev (and Decider Score uses the TypeSafe score-distance formula).
+TypeSafe-compatible Choice formula as Jev (and Decider Score uses the TypeSafe score-distance formula);
+Clef's <code>confidence=</code> is <code>max(p)</code> itself, so it equals <code>answer=</code>.
 The live model moves the actual distribution, but the gate still applies the same code-owned bars.</p>
 
 <h3>The property is pinned by tests, not by memory</h3>
@@ -2052,7 +2082,7 @@ The live model moves the actual distribution, but the gate still applies the sam
 <span class="ok">PASS</span>  the mock reproduces each provider's own confidence definition</code></pre>
 </div>
 
-<p>The third of those enumerates the gate's inputs under all three providers and asserts the decisions are
+<p>The third of those enumerates the gate's inputs under all four providers and asserts the decisions are
 identical. The fourth is what makes the offline mock worth trusting: it reproduces each engine's own
 confidence formula over the same distribution, so the difference that would bite you in production is
 visible on a laptop with no network and in CI.</p>
@@ -2060,15 +2090,15 @@ visible on a laptop with no network and in CI.</p>
 <h3>Where the difference is allowed to live</h3>
 
 <table>
-<thead><tr><th></th><th>Jev</th><th>Laya</th><th>Decider</th></tr></thead>
+<thead><tr><th></th><th>Jev</th><th>Laya</th><th>Decider</th><th>Clef</th></tr></thead>
 <tbody>
-<tr><td>Endpoint</td><td><code>https://api.typesafe.ai/v1/systemone</code></td><td><code>http://127.0.0.1:8010/v1/systemone</code></td><td><code>http://127.0.0.1:8011/v1/systemone</code></td></tr>
-<tr><td>Credentials</td><td><code>TYPESAFE_API_KEY</code>, required</td><td><code>LAYA_API_KEY</code>, optional server setting</td><td>none on the stock local server</td></tr>
-<tr><td><code>model</code> field</td><td><code>jev-latest</code></td><td>omitted so the router picks per request</td><td>omitted; server uses <code>DECIDER_MODEL</code></td></tr>
-<tr><td>Response extras</td><td>-</td><td><code>answer_confidence</code>, <code>routing</code></td><td><code>x_p_max</code>, <code>certainty</code></td></tr>
-<tr><td>Where the state goes</td><td>a third-party service</td><td>a container on your machine</td><td>a container on your machine</td></tr>
-<tr><td><code>confidence</code> means</td><td>TypeSafe formula</td><td>normalized entropy</td><td>TypeSafe-compatible Choice / Score formulas</td></tr>
-<tr><td>Function-tool names</td><td><code>jev_*</code></td><td><code>laya_*</code></td><td><code>decider_*</code></td></tr>
+<tr><td>Endpoint</td><td><code>https://api.typesafe.ai<wbr>/v1/systemone</code></td><td><code>http://127.0.0.1:8010<wbr>/v1/systemone</code></td><td><code>http://127.0.0.1:8011<wbr>/v1/systemone</code></td><td>hosted: the Workers AI model route<br>local: <code>http://127.0.0.1:8012<wbr>/v1/systemone</code></td></tr>
+<tr><td>Credentials</td><td><code>TYPESAFE_API_KEY</code>, required</td><td><code>LAYA_API_KEY</code>, optional server setting</td><td>none on the stock local server</td><td>hosted: <code>CLOUDFLARE_API_TOKEN</code>, required<br>local: <code>CLEF_API_KEY</code>, optional server setting</td></tr>
+<tr><td><code>model</code> field</td><td><code>jev-latest</code></td><td>omitted so the router picks per request</td><td>omitted; server uses <code>DECIDER_MODEL</code></td><td><code>clef-flash</code>, always sent because Clef requires it</td></tr>
+<tr><td>Response extras</td><td>-</td><td><code>answer_confidence</code>, <code>routing</code></td><td><code>x_p_max</code>, <code>certainty</code></td><td>hosted: Cloudflare's response envelope, unwrapped by the client</td></tr>
+<tr><td>Where the state goes</td><td>a third-party service</td><td>a container on your machine</td><td>a container on your machine</td><td>hosted: Cloudflare<br>local: a container on your machine</td></tr>
+<tr><td><code>confidence</code> means</td><td>TypeSafe formula</td><td>normalized entropy</td><td>TypeSafe-compatible Choice / Score formulas</td><td><code>max(p)</code> for Choice and Score</td></tr>
+<tr><td>Function-tool names</td><td><code>jev_*</code></td><td><code>laya_*</code></td><td><code>decider_*</code></td><td><code>clef_*</code></td></tr>
 </tbody>
 </table>
 
@@ -2084,8 +2114,8 @@ provider-specific code beyond the display name in its reason strings.</p>
   <code>0.3471</code>. A 0.75 threshold tuned on Jev would reject a decisive Laya answer outright.
   <code>CopilotToolGate</code> therefore never reads that field: it thresholds on
   <code>AnswerConfidence</code>, the probability mass on the reported answer, which is provider-independent.
-  Laya sends it as <code>answer_confidence</code>, Decider sends it as <code>x_p_max</code>, and for Jev,
-  which sends neither, the client recovers the same number from the returned distribution.</p>
+  Laya sends it as <code>answer_confidence</code>, Decider sends it as <code>x_p_max</code>, and for Jev
+  and Clef, which send neither, the client recovers the same number from the returned distribution.</p>
   <p>Both numbers are kept and both are printed, because the provider's own value is still the right
   thing to show a person. Only policy is forbidden from reading it.</p>
 </div>
@@ -2099,7 +2129,7 @@ provider-specific code beyond the display name in its reason strings.</p>
   gating differently the day someone set <code>DECISION_PROVIDER=laya</code>.</p>
   <p>Care is not what prevented it. Structure did: one record holding every difference between
   providers, one client that reads it, policy code that is not allowed to know which provider it is
-  running on, and a self-test that checks every decision under all three. Any one of those on its own would
+  running on, and a self-test that checks every decision under all four. Any one of those on its own would
   not have been enough.</p>
   <p>Then make the adoption argument. Data residency is often the reason a client cannot adopt an
   agent policy hook at all: tool arguments contain source code, paths, and repository structure, and a
@@ -2115,7 +2145,7 @@ provider-specific code beyond the display name in its reason strings.</p>
 <table>
 <thead><tr><th>Variable</th><th>Default</th><th>Read by</th><th>Meaning</th></tr></thead>
 <tbody>
-<tr><td><code>DECISION_PROVIDER</code></td><td>(inferred)</td><td>CLI / hook / UI</td><td><code>jev</code> / <code>laya</code> / <code>decider</code>. Unset: Laya wins when <code>LAYA_BASE_URL</code> is set, then Decider when <code>DECIDER_BASE_URL</code> is set, else Jev.</td></tr>
+<tr><td><code>DECISION_PROVIDER</code></td><td>(inferred)</td><td>CLI / hook / UI</td><td><code>jev</code> / <code>laya</code> / <code>decider</code> / <code>clef</code>. Unset: Laya wins when <code>LAYA_BASE_URL</code> is set, then Decider when <code>DECIDER_BASE_URL</code> is set, then Clef when <code>CLEF_BASE_URL</code> is set, else Jev. Cloudflare credentials alone never select Clef.</td></tr>
 <tr><td><code>DECISION_MODE</code></td><td><code>off</code></td><td>Hook adapter</td><td><code>off</code> / <code>mock</code> / <code>live</code> / <code>auto</code>. Falls back to <code>JEV_MODE</code>.</td></tr>
 <tr><td><code>DECISION_HOOK_DEADLINE_MS</code></td><td><code>4000</code></td><td>Hook adapter</td><td>Internal deadline. Must stay below <code>timeoutSec</code>. Falls back to <code>JEV_HOOK_DEADLINE_MS</code>.</td></tr>
 <tr><td><code>TYPESAFE_API_KEY</code></td><td>(none)</td><td>Both</td><td>Bearer token for the Jev API. Required for <code>live</code> on Jev.</td></tr>
@@ -2134,6 +2164,15 @@ provider-specific code beyond the display name in its reason strings.</p>
 <tr><td><code>DECIDER_DEVICE</code></td><td><code>auto</code></td><td>Decider container</td><td><code>auto</code> / <code>cpu</code> / <code>cuda</code>; the GPU helper sets CUDA.</td></tr>
 <tr><td><code>DECIDER_HOST_PORT</code></td><td><code>8011</code></td><td>compose / scripts</td><td>Loopback host port for Decider.</td></tr>
 <tr><td><code>DECIDER_AI_VERSION</code></td><td><code>1.6.0</code></td><td>Docker build</td><td>Version of the <code>decider-ai</code> package pinned in the local image.</td></tr>
+<tr><td><code>CLOUDFLARE_ACCOUNT_ID</code></td><td>(none)</td><td>HTTP client / UI</td><td>Account whose Workers AI runs hosted Clef. Letters and digits only, because it becomes part of the request path.</td></tr>
+<tr><td><code>CLOUDFLARE_API_TOKEN</code></td><td>(none)</td><td>HTTP client / UI</td><td>Workers AI token, sent as a bearer token to Cloudflare only. With the account ID, makes hosted Clef live mode available.</td></tr>
+<tr><td><code>CLEF_BASE_URL</code></td><td>(none)</td><td>HTTP client / UI</td><td>A local Clef server, <code>http://127.0.0.1:8012</code> from the helper scripts. Wins over the Cloudflare variables, and selects Clef when <code>DECISION_PROVIDER</code> is unset.</td></tr>
+<tr><td><code>CLEF_API_KEY</code></td><td>(none)</td><td>HTTP client / Clef container</td><td>Optional bearer token for the local server.</td></tr>
+<tr><td><code>CLEF_MODEL</code></td><td><code>clef-flash</code></td><td>HTTP client / Clef container</td><td><code>clef-flash</code> or <code>clef</code>. Always sent in the request body.</td></tr>
+<tr><td><code>CLEF_REVISION</code></td><td>pinned for <code>clef-flash</code></td><td>Clef container</td><td>Hugging Face commit to load the model code and weights from.</td></tr>
+<tr><td><code>CLEF_DEVICE</code></td><td><code>auto</code></td><td>Clef container</td><td><code>auto</code> / <code>cpu</code> / <code>cuda</code>; the GPU helper sets CUDA.</td></tr>
+<tr><td><code>CLEF_HOST_PORT</code></td><td><code>8012</code></td><td>compose / scripts</td><td>Loopback host port for local Clef.</td></tr>
+<tr><td><code>CLEF_MAX_QUEUED</code></td><td><code>4</code></td><td>Clef container</td><td>Requests allowed to wait before the server answers <code>503</code>.</td></tr>
 <tr><td><code>COPILOT_CLI_PATH</code></td><td>(none)</td><td>Levels 6, 7, 10</td><td>Path to a Copilot binary when not using the SDK-downloaded one</td></tr>
 <tr><td><code>COPILOT_HOME</code></td><td><code>~/.copilot</code></td><td>Copilot CLI</td><td>Where Copilot keeps session state and config</td></tr>
 </tbody>
@@ -2147,12 +2186,15 @@ provider-specific code beyond the display name in its reason strings.</p>
   --level &lt;n&gt;             Run one level (default: 1).
   --all                   Run every level that does not need a Copilot runtime.
   --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
-  --provider &lt;jev|laya|decider&gt;
+  --provider &lt;jev|laya|decider|clef&gt;
                           Decision engine (default: DECISION_PROVIDER, else laya when
-                          LAYA_BASE_URL is set, decider when DECIDER_BASE_URL is set, else jev).
+                          LAYA_BASE_URL is set, decider when DECIDER_BASE_URL is set,
+                          clef when CLEF_BASE_URL is set, else jev).
   --mode &lt;mock|live&gt;      How to reach it (default: mock). '--jev' is accepted as an alias.
-                          'live' needs TYPESAFE_API_KEY for jev, or a running local server
-                          for laya/decider (see docs/LAYA.md and docs/DECIDER.md).</code></pre>
+                          'live' needs TYPESAFE_API_KEY for jev, a running laya-serve
+                          for laya, decider.serve for decider (see docs/DECIDER.md), or
+                          CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (or a local
+                          CLEF_BASE_URL) for clef (see docs/CLEF.md).</code></pre>
 </div>
 
 <p>Exit codes: <code>0</code> success, <code>1</code> a Copilot-backed level failed, <code>2</code> bad
@@ -2163,10 +2205,10 @@ arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ct
 <table>
 <thead><tr><th>Path</th><th>Role</th></tr></thead>
 <tbody>
-<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs for the <code>/v1/systemone</code> contract all three providers speak</td></tr>
+<tr><td><code>src/Jev.Core/Models.cs</code></td><td>Request and response DTOs for the <code>/v1/systemone</code> contract all four providers speak</td></tr>
 <tr><td><code>src/Jev.Core/IJevClient.cs</code></td><td>The one-method interface all providers implement</td></tr>
-<tr><td><code>src/Jev.Core/DecisionProviders.cs</code></td><td>Provider selection. Jev/Laya/Decider endpoint differences live here, not in policy.</td></tr>
-<tr><td><code>src/Jev.Core/SystemOneHttpClient.cs</code></td><td>Live client for all three providers. Small on purpose so the wire contract is inspectable.</td></tr>
+<tr><td><code>src/Jev.Core/DecisionProviders.cs</code></td><td>Provider selection. Jev/Laya/Decider/Clef endpoint differences, including hosted Clef's route and response envelope, live here, not in policy.</td></tr>
+<tr><td><code>src/Jev.Core/SystemOneHttpClient.cs</code></td><td>Live client for all four providers. Small on purpose so the wire contract is inspectable.</td></tr>
 <tr><td><code>src/Jev.Core/MockJevClient.cs</code></td><td>Deterministic offline simulator driven by risk bands</td></tr>
 <tr><td><code>src/Jev.Core/RiskHeuristics.cs</code></td><td>Anchored regexes: hard deny, credential shapes, demo risk bands</td></tr>
 <tr><td><code>src/Jev.Core/CopilotToolGate.cs</code></td><td>The layered policy engine. Shared by levels 5, 8, 9, and the hook.</td></tr>
@@ -2178,11 +2220,15 @@ arguments or a missing key, <code>130</code> cancelled with <span class="kbd">Ct
 <tr><td><code>scripts/laya-down.ps1</code> / <code>.sh</code></td><td>Stops it, keeping the model-cache volume unless you ask otherwise</td></tr>
 <tr><td><code>scripts/decider-up.ps1</code> / <code>.sh</code></td><td>Builds/starts local Decider and waits for <code>/health</code></td></tr>
 <tr><td><code>scripts/decider-down.ps1</code> / <code>.sh</code></td><td>Stops Decider, optionally removing the cached model volume</td></tr>
+<tr><td><code>scripts/clef-up.ps1</code> / <code>.sh</code></td><td>Builds/starts local Clef and waits for <code>/health</code> while the weights download and load</td></tr>
+<tr><td><code>scripts/clef-down.ps1</code> / <code>.sh</code></td><td>Stops Clef, optionally removing the cached model volume</td></tr>
+<tr><td><code>docker/clef/</code></td><td>The local Clef image: a FastAPI wrapper, <code>server.py</code>, around the model's <code>systemone()</code> function</td></tr>
 <tr><td><code>docs/LAYA.md</code></td><td>The Laya provider reference</td></tr>
 <tr><td><code>docs/DECIDER.md</code></td><td>Windows/Docker setup, GPU option, model sizing, and Decider compatibility notes</td></tr>
+<tr><td><code>docs/CLEF.md</code></td><td>Hosted (Workers AI) and local (Docker) Clef setup, hardware needs, and Clef compatibility notes</td></tr>
 <tr><td><code>scripts/jev-hook.ps1</code> / <code>.sh</code></td><td>Thin wrappers. Always exit 0, always print one decision.</td></tr>
 <tr><td><code>scripts/test-hook.ps1</code> / <code>.sh</code></td><td>Replays every sample and asserts its expected decision</td></tr>
-<tr><td><code>samples/hooks/*.json</code></td><td>Ten payloads, each with its expected decision and a note</td></tr>
+<tr><td><code>samples/hooks/*.json</code></td><td>Twelve payloads, each with its expected decision and a note</td></tr>
 <tr><td><code>.github/hooks/jev-policy.json</code></td><td>The native Copilot CLI hook registration</td></tr>
 <tr><td><code>tests/Jev.Core.SelfTests/</code></td><td>Dependency-free smoke tests, both directions per rule</td></tr>
 </tbody>
@@ -2298,9 +2344,9 @@ and in CI. Policy never reads it.</p>
   <td>Authenticate the CLI, or set <code>COPILOT_CLI_PATH</code> to an installed binary</td>
 </tr>
 <tr>
-  <td>The agent's own <code>jev_*</code>, <code>laya_*</code>, or <code>decider_*</code> calls get denied</td>
+  <td>The agent's own <code>jev_*</code>, <code>laya_*</code>, <code>decider_*</code>, or <code>clef_*</code> calls get denied</td>
   <td>The exemption list in <code>CopilotToolGate</code> was removed or renamed</td>
-  <td>Restore all nine names in <code>DecisionTools</code>; the tool prefix follows the selected provider</td>
+  <td>Restore all twelve names in <code>DecisionTools</code>; the tool prefix follows the selected provider</td>
 </tr>
 </tbody>
 </table>
@@ -2382,7 +2428,7 @@ work through this list:</p>
     <li><b>Tests in both directions.</b> Every rule has a command that must match and a harmless one
     that must not, so loosening a rule shows up in a diff.</li>
   </ol>
-  <p>All four hold whether you use Jev, Laya, Decider, a different model, or no model at all. The provider
+  <p>All four hold whether you use Jev, Laya, Decider, Clef, a different model, or no model at all. The provider
   switch is itself an example of the second one: provider differences are data in
   <code>SystemOneEndpoint</code>, not branches in the policy code.</p>
 </div>
@@ -2410,7 +2456,7 @@ work through this list:</p>
 <tr>
   <td><b>7:00</b></td>
   <td><code>./scripts/test-hook.ps1</code></td>
-  <td>Ten payloads, each asserting a decision. Four are regressions from real mistakes.</td>
+  <td>Twelve payloads, each asserting a decision under all four providers. Four are regressions from real mistakes.</td>
 </tr>
 <tr>
   <td><b>9:00</b></td>
@@ -2454,12 +2500,14 @@ work through this list:</p>
 
 <div class="footer">
   <p><b>Ten Levels of Jev for .NET + GitHub Copilot.</b> MIT licensed. An independent demo, not an
-  official TypeSafe, GitHub, or Microsoft project.</p>
+  official TypeSafe, Laya, Decider, Cloudflare, GitHub, or Microsoft project.</p>
   <p>Related reading in this repository:
   <a href="../README.md">README.md</a> &middot;
   <a href="LEVELS.md">docs/LEVELS.md</a> &middot;
   <a href="ARCHITECTURE.md">docs/ARCHITECTURE.md</a> &middot;
   <a href="LAYA.md">docs/LAYA.md</a> &middot;
+  <a href="DECIDER.md">docs/DECIDER.md</a> &middot;
+  <a href="CLEF.md">docs/CLEF.md</a> &middot;
   <a href="SECURITY.md">docs/SECURITY.md</a> &middot;
   <a href="SOURCES.md">docs/SOURCES.md</a></p>
 </div>

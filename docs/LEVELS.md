@@ -2,7 +2,7 @@
 
 The progression intentionally mirrors the learning shape of `ten-levels-of-jev`: start with one small typed decision and end with a coding agent that knows when a System-One model is the right primitive.
 
-Every level runs unchanged against any provider - TypeSafe Jev, a local Laya container, or a local Decider container - because provider differences are confined to `SystemOneEndpoint`. Add `--provider jev`, `--provider laya`, or `--provider decider` to any command; see [LAYA.md](LAYA.md) and [DECIDER.md](DECIDER.md).
+Every level runs unchanged against any provider - TypeSafe Jev, a local Laya container, a local Decider container, or Clef on Cloudflare Workers AI or in a local container - because provider differences are confined to `SystemOneEndpoint`. Add `--provider jev`, `--provider laya`, `--provider decider`, or `--provider clef` to any command; see [LAYA.md](LAYA.md), [DECIDER.md](DECIDER.md), and [CLEF.md](CLEF.md).
 
 | Level | Demo | New idea | Runtime |
 |---:|---|---|---|

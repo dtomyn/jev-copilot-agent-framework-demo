@@ -1,0 +1,8 @@
+services:
+  clef:
+    build:
+      args:
+        CLEF_BACKEND: cuda
+    gpus: all
+    environment:
+      CLEF_DEVICE: cuda

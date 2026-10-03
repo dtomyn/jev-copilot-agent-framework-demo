@@ -11,6 +11,9 @@
 #   --laya                 start the local Laya container and enable live mode for Laya
 #   --decider              start Decider in Docker and enable live mode for Decider
 #   --decider-gpu          same as --decider, with NVIDIA GPU access
+#   --clef                 start Clef in Docker and enable live mode for local Clef (needs ~19 GB;
+#                          hosted Clef needs only credentials, see docs/CLEF.md)
+#   --clef-gpu             same as --clef, with NVIDIA GPU access
 #   --restart              stop a UI that is already running on the port, then start this one;
 #                          only ever stops a Jev.WebUi process
 set -euo pipefail
@@ -25,6 +28,8 @@ agent_levels=0
 laya=0
 decider=0
 decider_gpu=0
+clef=0
+clef_gpu=0
 restart=0
 
 for argument in "$@"; do
@@ -35,6 +40,8 @@ for argument in "$@"; do
     --laya) laya=1 ;;
     --decider) decider=1 ;;
     --decider-gpu) decider=1; decider_gpu=1 ;;
+    --clef) clef=1 ;;
+    --clef-gpu) clef=1; clef_gpu=1 ;;
     --restart) restart=1 ;;
     *) echo "Unknown option: $argument" >&2; exit 2 ;;
   esac
@@ -113,7 +120,7 @@ if port_in_use; then
 
       if [ "$only_webui" -eq 1 ]; then
         echo "That is an earlier demo UI. It keeps the environment it was started with, so it"
-        echo "will not pick up --laya/--decider or changed provider URLs. Stop it and start this one:"
+        echo "will not pick up --laya/--decider/--clef or changed provider URLs. Stop it and start this one:"
         echo
         echo "  ./scripts/webui.sh${arguments_text:+ $arguments_text} --restart"
         echo
@@ -165,6 +172,15 @@ if [ "$decider" -eq 1 ]; then
   export DECIDER_BASE_URL="http://127.0.0.1:${DECIDER_HOST_PORT:-8011}"
 fi
 
+if [ "$clef" -eq 1 ]; then
+  if [ "$clef_gpu" -eq 1 ]; then
+    "$repository/scripts/clef-up.sh" --gpu
+  else
+    "$repository/scripts/clef-up.sh"
+  fi
+  export CLEF_BASE_URL="http://127.0.0.1:${CLEF_HOST_PORT:-8012}"
+fi
+
 if [ "$browser" -eq 1 ]; then
   # Not waited on: the page retries its own API calls, so a browser that arrives a second early
   # simply loads a moment later.
@@ -179,9 +195,10 @@ echo
 echo "Presentation UI: $url"
 if [ "$laya" -eq 1 ]; then echo "Laya live mode is available: requests go to $LAYA_BASE_URL."; fi
 if [ "$decider" -eq 1 ]; then echo "Decider live mode is available: requests go to $DECIDER_BASE_URL."; fi
-if [ "$laya" -eq 0 ] && [ "$decider" -eq 0 ]; then
+if [ "$clef" -eq 1 ]; then echo "Clef live mode is available: requests go to $CLEF_BASE_URL."; fi
+if [ "$laya" -eq 0 ] && [ "$decider" -eq 0 ] && [ "$clef" -eq 0 ]; then
   echo "Provider defaults to Laya in mock mode, which needs no API key and no network."
-  echo "Pass --laya and/or --decider (or --decider-gpu) to enable local live providers."
+  echo "Pass --laya, --decider, and/or --clef (or --decider-gpu/--clef-gpu) to enable local live providers."
 fi
 echo "Press Ctrl+C to stop."
 echo

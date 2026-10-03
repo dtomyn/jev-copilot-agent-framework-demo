@@ -6,8 +6,8 @@ namespace Jev.WebUi;
 /// Turns the browser's two dropdowns, provider and mode, into an <see cref="IJevClient"/>.
 ///
 /// The UI picks per request rather than per process on purpose: a presenter can switch among Laya,
-/// Decider, and Jev, or between mock and live, mid-demo. The same policy code can therefore be
-/// exercised against all three engines back to back without a restart.
+/// Decider, Clef, and Jev, or between mock and live, mid-demo. The same policy code can therefore
+/// be exercised against all four engines back to back without a restart.
 /// </summary>
 public static class DecisionSession
 {
@@ -79,6 +79,7 @@ public static class DecisionSession
     {
         bool layaLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Laya);
         bool deciderLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Decider);
+        bool clefLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Clef);
         bool jevLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Jev);
 
         return
@@ -98,6 +99,11 @@ public static class DecisionSession
                     ? $"Live requests go to {Environment.GetEnvironmentVariable("DECIDER_BASE_URL")}."
                     : "Set DECIDER_BASE_URL and start decider.serve (scripts/decider-up.ps1) to enable live mode."),
             new ProviderStatus(
+                "clef",
+                "Clef",
+                clefLive,
+                ClefStatusMessage(clefLive)),
+            new ProviderStatus(
                 "jev",
                 "Jev",
                 jevLive,
@@ -105,5 +111,20 @@ public static class DecisionSession
                     ? "Live requests go to the hosted TypeSafe endpoint."
                     : "Enter a TypeSafe API key under Config, or set TYPESAFE_API_KEY, to enable live mode. Mock mode needs no key."),
         ];
+    }
+
+    // Clef can be live two ways, and the presenter should be able to tell which one before
+    // pressing Run: one of them sends the state to Cloudflare.
+    private static string ClefStatusMessage(bool live)
+    {
+        if (!live)
+        {
+            return "Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN for hosted Workers AI, or CLEF_BASE_URL for a local container (scripts/clef-up.ps1), to enable live mode.";
+        }
+
+        string? local = Environment.GetEnvironmentVariable("CLEF_BASE_URL");
+        return string.IsNullOrWhiteSpace(local)
+            ? "Live requests go to Cloudflare Workers AI (hosted)."
+            : $"Live requests go to {local}.";
     }
 }

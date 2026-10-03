@@ -128,7 +128,8 @@ public sealed class MockJevClient : IJevClient
     /// <summary>
     /// Reproduces the selected provider's own display <c>confidence</c>. Jev and Decider Choice
     /// use <c>(n*p_max - 1)/(n - 1)</c>; Decider Score uses TypeSafe's distance formula; Laya uses
-    /// normalized entropy. Policy deliberately thresholds the separate max(p) value instead.
+    /// normalized entropy; Clef reports <c>max(p)</c> itself. Policy deliberately thresholds the
+    /// separate max(p) value instead.
     /// </summary>
     private double ProviderConfidence(IEnumerable<double> probabilities, bool isScore)
     {
@@ -136,6 +137,11 @@ public sealed class MockJevClient : IJevClient
         if (p.Length < 2)
         {
             return 1.0;
+        }
+
+        if (Provider == DecisionProvider.Clef)
+        {
+            return Math.Round(p.Max(), 4);
         }
 
         if (Provider == DecisionProvider.Laya)

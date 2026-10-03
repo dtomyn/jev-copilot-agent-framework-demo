@@ -2,7 +2,7 @@
 
 A .NET-first learning repo that starts with a single System-One probability and ends with that decision engine embedded in a GitHub Copilot coding-agent workflow.
 
-Three engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted; **[Laya](https://github.com/NandhaKishorM/laya)**, open source and local; and **[Decider](https://github.com/Mapika/decider)**, open source and local. Laya and Decider both expose the same `POST /v1/systemone` wire protocol, so one client and one set of DTOs serve all three; see [`docs/LAYA.md`](docs/LAYA.md) and [`docs/DECIDER.md`](docs/DECIDER.md).
+Four engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted; **[Laya](https://github.com/NandhaKishorM/laya)**, open source and local; **[Decider](https://github.com/Mapika/decider)**, open source and local; and **[Clef](https://developers.cloudflare.com/workers-ai/models/clef-flash/)**, Cloudflare's open-weights model, hosted on Workers AI or local in Docker. Laya, Decider, and Clef all expose the same System-One wire protocol, so one client and one set of DTOs serve all four; see [`docs/LAYA.md`](docs/LAYA.md), [`docs/DECIDER.md`](docs/DECIDER.md), and [`docs/CLEF.md`](docs/CLEF.md).
 
 The structure is deliberately inspired by [`disler/ten-levels-of-jev`](https://github.com/disler/ten-levels-of-jev/tree/main/apps/ten-levels): each level adds one idea, the early levels run without a coding agent, and the later levels let the coding agent decide when Jev is useful. The Microsoft Agent Framework direction is informed by [`rwjdk/agent-framework-samples`](https://github.com/rwjdk/agent-framework-samples/tree/main/src/JevClassification), but this repo is an original implementation rather than a source port.
 
@@ -22,6 +22,7 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 │   ├── ARCHITECTURE.md
 │   ├── LAYA.md                          # running the demo against local open-source Laya
 │   ├── DECIDER.md                       # Windows/Docker setup for local Decider
+│   ├── CLEF.md                          # Cloudflare Clef, hosted (Workers AI) or local (Docker)
 │   ├── LEVELS.md
 │   ├── SECURITY.md
 │   ├── SOURCES.md
@@ -34,6 +35,8 @@ This version uses **GitHub Copilot CLI** throughout. The whole demo is C#/.NET 1
 │   ├── laya-down.sh / laya-down.ps1
 │   ├── decider-up.sh / decider-up.ps1   # build/start local Decider
 │   ├── decider-down.sh / decider-down.ps1
+│   ├── clef-up.sh / clef-up.ps1         # build/start local Clef
+│   ├── clef-down.sh / clef-down.ps1
 │   ├── test-hook.sh / test-hook.ps1
 │   └── webui.sh / webui.ps1             # build and start the interactive demo UI
 ├── src/
@@ -81,19 +84,23 @@ To present against a real local provider instead, add one switch:
 ```bash
 ./scripts/webui.sh --laya             # macOS / Linux, Laya
 ./scripts/webui.sh --decider          # macOS / Linux, Decider CPU
+./scripts/webui.sh --clef-gpu         # macOS / Linux, Clef + NVIDIA GPU
 ./scripts/webui.ps1 -Laya             # Windows PowerShell 7+, Laya
 ./scripts/webui.ps1 -Decider          # Windows PowerShell 7+, Decider CPU
 ./scripts/webui.ps1 -DeciderGpu       # Windows PowerShell 7+, Decider + NVIDIA GPU
+./scripts/webui.ps1 -ClefGpu          # Windows PowerShell 7+, Clef + NVIDIA GPU
 ```
 
-The Laya path starts `laya-serve`; the Decider path builds/starts the local image under `docker/decider`. Both wait for `/health`, set the corresponding base URL for the UI, and then start it with Live enabled for that provider. You can also start Laya and Decider together to switch between them per request.
+The Laya path starts `laya-serve`; the Decider and Clef paths build/start the local images under `docker/decider` and `docker/clef`. Each waits for `/health`, sets the corresponding base URL for the UI, and then starts it with Live enabled for that provider. You can also start several local providers together to switch between them per request.
+Local Clef needs about 19 GB for its weights, so `-Clef`/`--clef` without a GPU works but is too slow for the hook.
+Hosted Clef needs no switch at all: set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` before starting the UI.
 A container that is already running is reused, not restarted.
 The script refuses to start if a UI is already listening on port 5088, because that instance keeps the environment it was started with and would still show Live disabled.
 It names the process holding the port and prints the command to stop it.
 Add `-Restart` (or `--restart`) to stop an earlier demo UI and start the new one in one go; it never stops a process that is not `Jev.WebUi`.
 
 - **Provider and mode switch per request**, from the top bar.
-  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL`, and Decider needs `DECIDER_BASE_URL` (the helper scripts use `http://127.0.0.1:8011`).
+  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL`, Decider needs `DECIDER_BASE_URL` (the helper scripts use `http://127.0.0.1:8011`), and Clef needs either `CLEF_BASE_URL` (`http://127.0.0.1:8012`) or both `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
   The Jev key can also be entered in the **Config** dialog, in a masked field. It is applied as `TYPESAFE_API_KEY` for the UI and every hook and level process it starts, exactly as if it had been set in the shell. It is held in memory only, never written to disk, and never sent back to the page.
   Everything else runs against the deterministic mock.
 - **Every scenario is editable.**
@@ -122,6 +129,9 @@ For a live decision engine, pick one:
 
 - **Laya (open source, local).** Run `./scripts/laya-up.ps1` (or `.sh`) to start `laya-serve` in Docker, then use `--provider laya --mode live`. No API key. See [`docs/LAYA.md`](docs/LAYA.md).
 - **Decider (open source, local).** On Windows 11, run `.\scripts\decider-up.ps1` for CPU or `.\scripts\decider-up.ps1 -Gpu` for an NVIDIA GPU, then use `--provider decider --mode live`. The repo builds its own thin Docker image and defaults to `Mapika/decider-4b`; see [`docs/DECIDER.md`](docs/DECIDER.md).
+- **Clef (Cloudflare, hosted or local).** For the hosted Workers AI path, set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, then use `--provider clef --mode live`; no hardware is needed, but the state is sent to Cloudflare.
+  For the local path, run `.\scripts\clef-up.ps1 -Gpu` on a 24 GB+ NVIDIA GPU and set `CLEF_BASE_URL=http://127.0.0.1:8012`, which takes precedence over the Cloudflare credentials.
+  See [`docs/CLEF.md`](docs/CLEF.md).
 - **Jev (hosted).** Set a TypeSafe API key in `TYPESAFE_API_KEY` and use `--provider jev --mode live`. The client sends `POST https://api.typesafe.ai/v1/systemone` and defaults to `JEV_MODEL=jev-latest`.
 
 For Levels 6, 7, and 10, install and authenticate **GitHub Copilot CLI**. The repo pins `Microsoft.Agents.AI.GitHub.Copilot` 1.22.0 and uses `CopilotClient.AsAIAgent(...)` from Microsoft Agent Framework.
@@ -194,6 +204,22 @@ $env:DECIDER_BASE_URL = "http://127.0.0.1:8011"
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider decider --mode live
 ```
 
+Run against hosted Clef on Cloudflare Workers AI:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID="..." CLOUDFLARE_API_TOKEN="..."
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider clef --mode live
+```
+
+PowerShell:
+
+```powershell
+$env:CLOUDFLARE_ACCOUNT_ID = "..."; $env:CLOUDFLARE_API_TOKEN = "..."
+dotnet run --project src/TenLevels.Jev -- --level 4 --provider clef --mode live
+```
+
+For a local Clef container (after `./scripts/clef-up.sh --gpu` or `.\scripts\clef-up.ps1 -Gpu`), set `CLEF_BASE_URL=http://127.0.0.1:8012` instead.
+
 Run against the hosted Jev API:
 
 ```bash
@@ -208,7 +234,7 @@ $env:TYPESAFE_API_KEY = "..."
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live
 ```
 
-`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, then to `decider` when `DECIDER_BASE_URL` is set, and to `jev` otherwise. `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
+`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, then to `decider` when `DECIDER_BASE_URL` is set, then to `clef` when `CLEF_BASE_URL` is set, and to `jev` otherwise (Cloudflare credentials alone never select Clef). `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
 
 ## Run the Microsoft Agent Framework + Copilot levels
 
@@ -224,7 +250,7 @@ Use `--mode live` instead, with whichever `--provider` you configured.
 
 These examples deliberately give the Agent Framework agent only decision function tools. They do **not** grant its built-in shell/file/URL permissions. That keeps the lesson focused and prevents the MAF sample from becoming a second, hidden execution-policy surface.
 
-One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*` and `decider_*` spellings appear too, and the gate treats all nine names as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
+One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*`, `decider_*`, and `clef_*` spellings appear too, and the gate treats all twelve names as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
 
 ## Run the native GitHub Copilot CLI hook
 
@@ -296,6 +322,28 @@ copilot
 
 See [`docs/DECIDER.md`](docs/DECIDER.md) for the Windows GPU option and model sizing.
 
+### Live hook, hosted Clef
+
+macOS/Linux:
+
+```bash
+export DECISION_PROVIDER=clef DECISION_MODE=live
+export CLOUDFLARE_ACCOUNT_ID="..." CLOUDFLARE_API_TOKEN="..."
+copilot
+```
+
+PowerShell:
+
+```powershell
+$env:DECISION_PROVIDER = "clef"; $env:DECISION_MODE = "live"
+$env:CLOUDFLARE_ACCOUNT_ID = "..."; $env:CLOUDFLARE_API_TOKEN = "..."
+copilot
+```
+
+This sends each gated tool call's state to Cloudflare.
+To keep it on the machine, start the local container with `./scripts/clef-up.ps1 -Gpu` and set `CLEF_BASE_URL=http://127.0.0.1:8012`, which wins over the Cloudflare credentials.
+See [`docs/CLEF.md`](docs/CLEF.md) for both paths and the hardware the local one needs.
+
 ### Live hook, hosted Jev
 
 ```bash
@@ -308,7 +356,7 @@ copilot
 
 `DECISION_MODE=off` is the hook default. In that mode, deterministic hard-deny rules still apply, known read-only tools still pass, and other mutations become `ask`.
 
-`DECISION_MODE=auto` goes live only when the selected provider is configured (a key for Jev, a base URL for Laya or Decider); otherwise it behaves like `off`. The earlier `JEV_MODE` name is still read when `DECISION_MODE` is unset.
+`DECISION_MODE=auto` goes live only when the selected provider is configured (a key for Jev, a base URL for Laya or Decider, and for Clef either `CLEF_BASE_URL` or both Cloudflare variables); otherwise it behaves like `off`. The earlier `JEV_MODE` name is still read when `DECISION_MODE` is unset.
 
 ## Test the hook without starting Copilot
 
@@ -327,18 +375,22 @@ PowerShell:
 Each sample carries the decision it must produce, so the script is an assertion, not just a printout:
 
 ```text
-PASS  curl-pipe-shell      -> deny
-PASS  dotnet-format        -> ask
-PASS  edit                 -> ask
-PASS  force-push           -> deny
-PASS  force-with-lease     -> ask
-PASS  jev-tool-with-secret -> ask
-PASS  jev-tool             -> allow
-PASS  laya-tool            -> allow
-PASS  decider-tool         -> allow
-PASS  read                 -> allow
-PASS  secret-read          -> ask
+PASS  [jev] clef-tool -> allow
+PASS  [jev] curl-pipe-shell -> deny
+PASS  [jev] decider-tool -> allow
+PASS  [jev] dotnet-format -> ask
+PASS  [jev] edit -> ask
+PASS  [jev] force-push -> deny
+PASS  [jev] force-with-lease -> ask
+PASS  [jev] jev-tool-with-secret -> ask
+PASS  [jev] jev-tool -> allow
+PASS  [jev] laya-tool -> allow
+PASS  [jev] read -> allow
+PASS  [jev] secret-read -> ask
+...
 ```
+
+Every sample is replayed against all four providers (`jev`, `laya`, `decider`, `clef`) with the same expected decision, because switching provider must change the reported reason and nothing else.
 
 Or pipe an individual sample payload:
 
@@ -378,7 +430,7 @@ So `CopilotToolGate` applies layers in this order:
 
 The important design principle is **the model advises; code authorizes**.
 
-Step 4 gates on `max(p)` and never on the provider's own `confidence` field, because that field has provider-specific semantics: Laya uses normalized entropy, Jev Choice and Decider Choice use the TypeSafe formula, and Decider Score uses its score-distance formula. A threshold carried across could silently loosen or tighten. See [`docs/LAYA.md`](docs/LAYA.md) and [`docs/DECIDER.md`](docs/DECIDER.md).
+Step 4 gates on `max(p)` and never on the provider's own `confidence` field, because that field has provider-specific semantics: Laya uses normalized entropy, Jev Choice and Decider Choice use the TypeSafe formula, Decider Score uses its score-distance formula, and Clef reports `max(p)` itself. A threshold carried across could silently loosen or tighten. See [`docs/LAYA.md`](docs/LAYA.md), [`docs/DECIDER.md`](docs/DECIDER.md), and [`docs/CLEF.md`](docs/CLEF.md).
 
 ## Hook failure semantics you should know
 
@@ -392,7 +444,7 @@ Because a timeout is the one failure mode that fails open, the hook enforces its
 
 ## Wire shape used here
 
-All three providers accept one `state`, an optional model name, and named typed questions at `POST /v1/systemone`. This repo implements the three primitives:
+All four providers accept one `state`, an optional model name, and named typed questions at `POST /v1/systemone` (hosted Clef at Cloudflare's Workers AI route, inside Cloudflare's response envelope). This repo implements the three primitives:
 
 ```json
 {
@@ -421,7 +473,7 @@ All three providers accept one `state`, an optional model name, and named typed 
 }
 ```
 
-The `model` field is omitted for Laya, which lets its router pick a checkpoint per request and report the choice back in a `routing` block, and for Decider, whose server process owns the model selection through `DECIDER_MODEL`. The client is intentionally tiny and lives in [`src/Jev.Core/SystemOneHttpClient.cs`](src/Jev.Core/SystemOneHttpClient.cs), so the wire contract is easy to inspect.
+The `model` field is omitted for Laya, which lets its router pick a checkpoint per request and report the choice back in a `routing` block, and for Decider, whose server process owns the model selection through `DECIDER_MODEL`. Clef, by contrast, rejects a request without one, so the client always sends `"model": "clef-flash"` (or `clef` when `CLEF_MODEL=clef`). The client is intentionally tiny and lives in [`src/Jev.Core/SystemOneHttpClient.cs`](src/Jev.Core/SystemOneHttpClient.cs), so the wire contract is easy to inspect.
 
 ## Suggested demo script
 
@@ -429,7 +481,7 @@ For a 10-15 minute walkthrough:
 
 1. Run Levels 1-4 in mock mode to introduce Noul/Choice/Score and parallel questions.
 2. Run Level 5 to show that policy stays in C#.
-3. Re-run Level 4 with `--provider laya --mode live` and then `--provider decider --mode live`: same code and DTOs, three interchangeable engines, and provider-specific `confidence` next to the portable `AnswerConfidence`.
+3. Re-run Level 4 with `--provider laya --mode live` then `--provider decider --mode live`, and then `--provider clef --mode live`: same code and DTOs, four interchangeable engines, and provider-specific `confidence` next to the portable `AnswerConfidence`.
 4. Run Level 7 with an authenticated Copilot runtime to show the decision primitives as MAF function tools.
 5. Run `./scripts/test-hook.sh` to show the exact native `preToolUse` JSON contract.
 6. Start `DECISION_MODE=mock copilot`, make Copilot inspect a file, edit a file, and propose a force push; point out `allow`, `ask`, and `deny`.
@@ -437,11 +489,12 @@ For a 10-15 minute walkthrough:
 
 ## Production hardening ideas
 
-This repo intentionally keeps the sample readable. The deterministic rules in `src/Jev.Core/RiskHeuristics.cs` are anchored regular expressions rather than substring tests, and each one is pinned by a self-test in both directions, but a regex still is not a shell parser: `rm $VAR` and base64-encoded payloads are outside its reach. Before using the pattern as organizational policy, consider signed/versioned policy distribution, real shell/command-line parsing, dedicated secret redaction, audit/event logging, latency and error telemetry, organization-specific allow/deny rules, sandboxing, policy tests derived from real tool traces, and a clear decision on whether a remote call is permitted for the data being evaluated - which is a strong argument for a self-hosted Laya or Decider path. Thresholds here are illustrative: re-fit them against the provider and checkpoint you actually deploy.
+This repo intentionally keeps the sample readable. The deterministic rules in `src/Jev.Core/RiskHeuristics.cs` are anchored regular expressions rather than substring tests, and each one is pinned by a self-test in both directions, but a regex still is not a shell parser: `rm $VAR` and base64-encoded payloads are outside its reach. Before using the pattern as organizational policy, consider signed/versioned policy distribution, real shell/command-line parsing, dedicated secret redaction, audit/event logging, latency and error telemetry, organization-specific allow/deny rules, sandboxing, policy tests derived from real tool traces, and a clear decision on whether a remote call is permitted for the data being evaluated - which is a strong argument for a self-hosted Laya, Decider, or local Clef path. Thresholds here are illustrative: re-fit them against the provider and checkpoint you actually deploy.
 
 ## Sources and compatibility
 
 See [`docs/SOURCES.md`](docs/SOURCES.md). The implementation was checked against the GitHub Copilot CLI hook documentation, the GitHub Copilot skill/custom-agent documentation, the Microsoft Agent Framework GitHub Copilot provider docs, the current TypeSafe OpenAPI document, Laya's HTTP API documentation and server source, Decider's model/package/server documentation, and the current NuGet package metadata while this demo was assembled in September 2026.
+The Clef integration was checked against Cloudflare's Workers AI model page, its input and output JSON schemas, and the Hugging Face model card in October 2026.
 
-MIT licensed. This is an independent demo and is not an official TypeSafe, Laya, Decider, GitHub, or Microsoft project.
+MIT licensed. This is an independent demo and is not an official TypeSafe, Laya, Decider, Cloudflare, GitHub, or Microsoft project.
 # jev-copilot-agent-framework-demo

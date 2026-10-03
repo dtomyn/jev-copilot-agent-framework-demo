@@ -37,14 +37,20 @@ Keep the "ten levels" teaching shape while making the implementation .NET-first 
       +-----------------+
       | TypeSafe Jev    |  hosted
       | laya-serve      |  open source, local container
+      | Decider         |  open source, local container
+      | Clef            |  Workers AI (hosted) or local container
       +-----------------+
 ```
 
-## One wire contract, three providers
+## One wire contract, four providers
 
-`laya-serve` and Decider both implement the same `POST /v1/systemone` request and response shape as TypeSafe Jev, so `SystemOneHttpClient` and the DTOs in `Models.cs` serve all three. Everything that differs is data, held in `SystemOneEndpoint`: base address, bearer-token behavior, and whether the request carries a `model` value. Laya leaves model choice to its router; Decider leaves it to the server process via `DECIDER_MODEL`.
+`laya-serve`, Decider, and Clef all implement the same `POST /v1/systemone` request and response shape as TypeSafe Jev, so `SystemOneHttpClient` and the DTOs in `Models.cs` serve all four. Everything that differs is data, held in `SystemOneEndpoint`: base address, bearer-token behavior, and whether the request carries a `model` value. Laya leaves model choice to its router; Decider leaves it to the server process via `DECIDER_MODEL`.
+Clef requires a `model` value, so the client always sends `clef-flash` (or `clef`).
+Hosted Clef also differs in route and framing: Workers AI serves it at `/client/v4/accounts/{id}/ai/run/@cf/cloudflare/clef-flash` and wraps the System-One body in Cloudflare's `{ "success", "errors", "result" }` envelope.
+Both are still data on the endpoint (`RequestPath` and `ResultEnvelope`), and the client unwraps the envelope before the DTOs see it.
+A local Clef container speaks plain `POST /v1/systemone`, and `CLEF_BASE_URL` takes precedence over the Cloudflare credentials.
 
-`confidence` is deliberately treated as provider metadata, not policy input: Laya uses normalized entropy, Jev Choice uses `(n*p_max - 1)/(n - 1)`, Decider Choice follows the TypeSafe-compatible formula, and Decider Score uses its score-distance formula. The client normalizes at the boundary and exposes `AnswerConfidence` (`max(p)`), reading Laya's `answer_confidence`, Decider's `x_p_max`, or recomputing it from the probability distribution. Policy reads only that, so `CopilotToolGate` contains no provider-specific threshold branches. See [LAYA.md](LAYA.md) and [DECIDER.md](DECIDER.md).
+`confidence` is deliberately treated as provider metadata, not policy input: Laya uses normalized entropy, Jev Choice uses `(n*p_max - 1)/(n - 1)`, Decider Choice follows the TypeSafe-compatible formula, Decider Score uses its score-distance formula, and Clef reports `max(p)` for both Choice and Score. The client normalizes at the boundary and exposes `AnswerConfidence` (`max(p)`), reading Laya's `answer_confidence`, Decider's `x_p_max`, or recomputing it from the probability distribution (as for Jev and Clef). Policy reads only that, so `CopilotToolGate` contains no provider-specific threshold branches. See [LAYA.md](LAYA.md), [DECIDER.md](DECIDER.md), and [CLEF.md](CLEF.md).
 
 ## Two Copilot integration tracks
 
@@ -52,7 +58,7 @@ Keep the "ten levels" teaching shape while making the implementation .NET-first 
 
 Levels 6, 7, and 10 use `Microsoft.Agents.AI.GitHub.Copilot`. The Copilot SDK remains the backend and Agent Framework exposes it as an `AIAgent`. Jev is registered as ordinary `AIFunction` tools (`CopilotClient.AsAIAgent(tools:)` takes `IList<AIFunctionDeclaration>`). The examples intentionally do not grant the programmatic agent shell/file permissions, so they demonstrate decision composition without silently creating a second execution policy surface.
 
-The two tracks are not independent. The Copilot runtime the Agent Framework spawns runs in the repository working directory, so it loads `.github/hooks/jev-policy.json` and applies the `preToolUse` hook to the agent's tool calls as well, including the decision functions the host registered. `CopilotToolGate` therefore recognises `jev_noul`, `jev_choice`, and `jev_score` as non-mutating, after the hard-deny and credential checks - plus the `laya_*` and `decider_*` spellings, because `DecisionToolSet` names its tools after the selected provider and the hook cannot know which provider another process chose. Removing that makes the repository's own hook deny the agent's own decision calls.
+The two tracks are not independent. The Copilot runtime the Agent Framework spawns runs in the repository working directory, so it loads `.github/hooks/jev-policy.json` and applies the `preToolUse` hook to the agent's tool calls as well, including the decision functions the host registered. `CopilotToolGate` therefore recognises `jev_noul`, `jev_choice`, and `jev_score` as non-mutating, after the hard-deny and credential checks - plus the `laya_*`, `decider_*`, and `clef_*` spellings, because `DecisionToolSet` names its tools after the selected provider and the hook cannot know which provider another process chose. Removing that makes the repository's own hook deny the agent's own decision calls.
 
 ### Native Copilot CLI hook track
 

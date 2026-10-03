@@ -2,7 +2,7 @@
 
 This repository is a demo, not a production policy engine.
 
-The safety model is intentionally layered. Obvious destructive shell patterns are blocked deterministically. Known read-only tools can pass without a model call. Other mutations are classified by the selected decision provider (TypeSafe Jev, Laya, or Decider) only when one is enabled, and the surrounding C# code owns the thresholds. Uncertain results become `ask` rather than being rounded into approval.
+The safety model is intentionally layered. Obvious destructive shell patterns are blocked deterministically. Known read-only tools can pass without a model call. Other mutations are classified by the selected decision provider (TypeSafe Jev, Laya, Decider, or Clef) only when one is enabled, and the surrounding C# code owns the thresholds. Uncertain results become `ask` rather than being rounded into approval.
 
 The deterministic rules live in `src/Jev.Core/RiskHeuristics.cs` and are anchored regular expressions, because substring matching is wrong in both directions for this job:
 
@@ -17,7 +17,14 @@ Every pattern is pinned by a self-test asserting both a command that must match 
 
 Do not send secrets to a decision model. `LooksSensitive` short-circuits the call and escalates to a person; it matches credential-shaped tokens (`ghp_*`, `AKIA*`, PEM headers) as well as keywords. It is still **not** a secret scanner. Production systems should perform dedicated secret detection and redaction before any model call.
 
-Running Laya or Decider locally changes the blast radius of that check but not the need for it: the state stays on the machine instead of reaching a third-party API, which is a real argument for the self-hosted path, but a local service can still log, and "local" is not "safe to record".
+Running Laya, Decider, or Clef locally changes the blast radius of that check but not the need for it: the state stays on the machine instead of reaching a third-party API, which is a real argument for the self-hosted path, but a local service can still log, and "local" is not "safe to record".
+
+Clef is the one provider that can be either.
+Hosted on Cloudflare Workers AI, it sends the state to Cloudflare, exactly as Jev sends it to TypeSafe.
+In the local container from `scripts/clef-up.*`, the state stays on the machine.
+`CLEF_BASE_URL` therefore takes precedence over the Cloudflare credentials, and Cloudflare credentials alone never select Clef, so a local setup cannot quietly fall back to sending tool calls to a hosted service.
+The Cloudflare account ID becomes part of the request path, so the client accepts only letters and digits there.
+The local container runs as a non-root user, is published only on host loopback, refuses Clef's `images` extension, and loads model code pinned to a specific commit.
 
 Repository hooks execute as the local user. Review hook code before trusting a repository, and use enterprise policy hooks or sandboxing when stronger enforcement is required.
 
@@ -27,11 +34,11 @@ Under Copilot's cloud agent there is nobody to answer `ask`, and `ask` is treate
 
 The Microsoft Agent Framework examples do not enable Copilot's built-in shell/file/URL permissions. Their purpose is to demonstrate the decision primitives as typed function tools without adding another mutation surface.
 
-The repository hook still applies to those agents, so `CopilotToolGate` allows the host's own `jev_noul` / `jev_choice` / `jev_score` functions, plus the `laya_*` and `decider_*` spellings of the same three, since `DecisionToolSet` names its tools after whichever provider the agent process selected. That is a deliberate, narrow exemption: those functions return a number and cannot mutate anything, and the hard-deny and credential checks run *before* it, so a decision call carrying credential material is still escalated to a person and never forwarded.
+The repository hook still applies to those agents, so `CopilotToolGate` allows the host's own `jev_noul` / `jev_choice` / `jev_score` functions, plus the `laya_*`, `decider_*`, and `clef_*` spellings of the same three, since `DecisionToolSet` names its tools after whichever provider the agent process selected. That is a deliberate, narrow exemption: those functions return a number and cannot mutate anything, and the hard-deny and credential checks run *before* it, so a decision call carrying credential material is still escalated to a person and never forwarded.
 
 ## Thresholds are provider-specific, and the code says so
 
-`confidence` does not have one portable meaning across providers: Laya defines it as normalized entropy `1 - H(p)/log(k)`, Jev Choice uses `(n*p_max - 1)/(n - 1)`, Decider Choice follows the same TypeSafe-compatible formula, and Decider Score uses its score-distance formula. A policy threshold copied across those meanings silently changes how much evidence is required. The gate therefore thresholds on `max(p)` (`AnswerConfidence`), which is provider-independent, and self-tests assert that gate decisions are unchanged when the provider is switched.
+`confidence` does not have one portable meaning across providers: Laya defines it as normalized entropy `1 - H(p)/log(k)`, Jev Choice uses `(n*p_max - 1)/(n - 1)`, Decider Choice follows the same TypeSafe-compatible formula, Decider Score uses its score-distance formula, and Clef reports `max(p)` itself. A policy threshold copied across those meanings silently changes how much evidence is required. The gate therefore thresholds on `max(p)` (`AnswerConfidence`), which is provider-independent, and self-tests assert that gate decisions are unchanged when the provider is switched.
 
 That makes the numbers portable, not correct. They are illustrative defaults for a demo, fitted to nothing: Calibration remains model- and checkpoint-specific; do not treat these demo values as validated for your traffic. Re-fit any threshold against the provider, checkpoint, and decisions you actually deploy.
 

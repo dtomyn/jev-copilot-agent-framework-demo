@@ -1,11 +1,11 @@
 ---
 name: jev-decisions
-description: Use a typed System-One decision engine (TypeSafe Jev, local Laya, or local Decider) for bounded, fast semantic judgments (yes/no probability, one-of-N choice, or ordered score) during coding work. Use when uncertainty is semantic rather than something that can be inspected or calculated deterministically.
+description: Use a typed System-One decision engine (TypeSafe Jev, local Laya, local Decider, or Cloudflare Clef) for bounded, fast semantic judgments (yes/no probability, one-of-N choice, or ordered score) during coding work. Use when uncertainty is semantic rather than something that can be inspected or calculated deterministically.
 ---
 
 # Typed decisions
 
-Use a decision engine only for a narrow judgment whose complete answer space can be written down before the call. Three providers are interchangeable here: hosted TypeSafe Jev, open-source Laya running locally (`docs/LAYA.md`), and open-source Decider running locally (`docs/DECIDER.md`). The primitives and guardrails below are provider-independent.
+Use a decision engine only for a narrow judgment whose complete answer space can be written down before the call. Four providers are interchangeable here: hosted TypeSafe Jev, open-source Laya running locally (`docs/LAYA.md`), open-source Decider running locally (`docs/DECIDER.md`), and Cloudflare Clef, hosted on Workers AI or running locally (`docs/CLEF.md`). The primitives and guardrails below are provider-independent.
 
 ## Pick the primitive
 
@@ -13,7 +13,7 @@ Use a decision engine only for a narrow judgment whose complete answer space can
 - **Choice**: exactly one member of a bounded set; preserve the returned probabilities.
 - **Score**: an ordered rubric; each criterion is a concrete level beginning at zero.
 
-Gate on `answerConfidence` (`max(p)`), not on `confidence`: that field has provider-specific semantics (including Laya entropy and Decider score confidence), so a threshold read off it is not portable.
+Gate on `answerConfidence` (`max(p)`), not on `confidence`: that field has provider-specific semantics (including Laya entropy, Decider score confidence, and Clef `max(p)`), so a threshold read off it is not portable.
 
 ## Guardrails
 

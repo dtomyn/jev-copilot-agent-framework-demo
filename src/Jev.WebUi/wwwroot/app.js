@@ -826,6 +826,7 @@
     { label: 'read .env', tool: 'view', args: '{"path":".env"}' },
     { label: 'decision tool (Laya)', tool: 'laya_noul', args: '{"state":"A PR changes token refresh.","question":"Security review?"}' },
     { label: 'decision tool (Decider)', tool: 'decider_score', args: '{"state":"A PR changes token refresh.","question":"Risk?"}' },
+    { label: 'decision tool (Clef)', tool: 'clef_choice', args: '{"state":"A PR changes token refresh.","question":"Which reviewers?"}' },
     { label: 'decision tool + secret', tool: 'jev_choice', args: '{"state":"Authorization: Bearer abc123 was in the diff."}' }
   ];
 
@@ -1283,7 +1284,7 @@
     9: {
       kind: 'gate',
       showConfidence: true,
-      note: 'Same gate, now showing the number the thresholds are read off. It is <code>max(p)</code>, never the provider\'s own <code>confidence</code> field: Laya uses normalized entropy, while Jev and Decider expose TypeSafe-compatible confidence semantics (and Decider also returns <code>x_p_max</code>). Switch among all three providers and watch every code-owned threshold keep the same meaning.',
+      note: 'Same gate, now showing the number the thresholds are read off. It is <code>max(p)</code>, never the provider\'s own <code>confidence</code> field: Laya uses normalized entropy, Jev and Decider expose TypeSafe-compatible confidence semantics (and Decider also returns <code>x_p_max</code>), and Clef reports <code>max(p)</code> itself. Switch among all four providers and watch every code-owned threshold keep the same meaning.',
       calls: [
         { tool: 'grep', args: '{"pattern":"TODO","path":"src"}' },
         { tool: 'edit', args: '{"path":"src/Service.cs","change":"replace retry policy"}' },

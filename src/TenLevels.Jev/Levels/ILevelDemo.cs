@@ -27,7 +27,8 @@ public static class LevelOutput
 
     // Both confidence numbers are printed because they are not the same quantity: `confidence` is
     // provider-defined (Laya uses normalized entropy; Jev and Decider expose TypeSafe-compatible
-    // formulas), while `answer` is max(p), which is what policy thresholds use.
+    // formulas; Clef reports max(p) itself), while `answer` is max(p), which is what policy
+    // thresholds use.
     public static void Answer(string name, JevAnswer answer)
     {
         Console.WriteLine($"{name}: {answer switch

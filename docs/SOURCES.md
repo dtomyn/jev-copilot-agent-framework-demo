@@ -61,3 +61,22 @@ The Decider integration was checked against the public project and package surfa
   https://docs.docker.com/desktop/features/gpu/
 
 The integration relies on Decider's Jev-compatible `POST /v1/systemone` route and `/health` endpoint. The application reads Decider's `x_p_max` as `AnswerConfidence` while retaining the provider's own `confidence` for display. The local Docker image pins `decider-ai` 1.6.0 by default and selects `Mapika/decider-4b` through the server-side `DECIDER_MODEL` environment variable. Upstream currently supports GGUF through the Python engine, but its HTTP/schema path still uses the Torch engine; the Docker HTTP path in this repository therefore uses the Torch model rather than advertising GGUF as a drop-in server replacement.
+
+## Clef references
+
+The Clef integration was checked against the public model surfaces current in October 2026:
+
+- Clef-Flash on Cloudflare Workers AI
+  https://developers.cloudflare.com/workers-ai/models/clef-flash/
+- Workers AI input schema
+  https://developers.cloudflare.com/workers-ai/models/clef-flash/schema-input.json
+- Workers AI output schema
+  https://developers.cloudflare.com/workers-ai/models/clef-flash/schema-output.json
+- `Cloudflare/clef-flash` model card and weights
+  https://huggingface.co/Cloudflare/clef-flash
+
+The integration relies on Clef's System-One-compatible request and response bodies.
+Hosted, they travel over the Workers AI route `accounts/{id}/ai/run/@cf/cloudflare/clef-flash` inside Cloudflare's `{ "success", "errors", "result" }` envelope, which the client unwraps; locally, `docker/clef/server.py` exposes the model's `joint_schema_model.systemone()` function as plain `POST /v1/systemone`.
+Every request carries `"model": "clef-flash"`, because Clef requires it.
+Clef reports `confidence` as `max(p)`; the application still recovers `AnswerConfidence` from the distribution, as it does for Jev.
+The local Docker image pins the model code to a specific Hugging Face commit rather than `main`.

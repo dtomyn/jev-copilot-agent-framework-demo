@@ -54,13 +54,14 @@ await Check("off mode asks on mutation", async () =>
 await Check("host-registered decision tools are not treated as mutations", async () =>
 {
     // The repository hook sees every tool the Agent Framework agent calls, including the decision
-    // functions the host itself registered. Denying those breaks levels 6, 7, and 10. Both
-    // provider prefixes must be allowed, because DecisionToolSet names its tools after the
+    // functions the host itself registered. Denying those breaks levels 6, 7, and 10. Every
+    // provider prefix must be allowed, because DecisionToolSet names its tools after the
     // provider the agent process was started with.
     string[] tools = [
         "jev_noul", "jev_choice", "jev_score",
         "laya_noul", "laya_choice", "laya_score",
         "decider_noul", "decider_choice", "decider_score",
+        "clef_noul", "clef_choice", "clef_score",
     ];
     foreach (string tool in tools)
     {
@@ -239,7 +240,7 @@ await Check("ordinary source paths are not treated as credentials", () =>
 });
 
 // ---------------------------------------------------------------------------
-// Wire contract for POST /v1/systemone, shared by TypeSafe Jev, laya-serve, and decider.serve.
+// Wire contract for POST /v1/systemone, shared by TypeSafe Jev, laya-serve, decider.serve, and Clef.
 // ---------------------------------------------------------------------------
 
 await Check("question serialization emits the System-One type discriminator", () =>
@@ -407,6 +408,7 @@ await Check("jev stays the default and still demands a key", () =>
         ("DECISION_PROVIDER", null),
         ("LAYA_BASE_URL", null),
         ("DECIDER_BASE_URL", null),
+        ("CLEF_BASE_URL", null),
         ("TYPESAFE_API_KEY", null));
 
     Equal(DecisionProvider.Jev, SystemOneEndpoint.ProviderFromEnvironment());
@@ -417,7 +419,7 @@ await Check("jev stays the default and still demands a key", () =>
     catch (InvalidOperationException ex)
     {
         Contains("DECISION_PROVIDER=laya", ex.Message);
-        Contains("DECISION_PROVIDER=decider", ex.Message);
+        Contains("decider, or clef", ex.Message);
         return Task.CompletedTask;
     }
 
@@ -543,6 +545,176 @@ await Check("a decider response uses x_p_max as answer confidence", async () =>
     Equal("decider-v2.1", response.Model);
 });
 
+// ---------------------------------------------------------------------------
+// Clef: the same wire contract, hosted on Workers AI or served by docker/clef.
+// ---------------------------------------------------------------------------
+
+await Check("cloudflare credentials resolve clef to the hosted Workers AI route", () =>
+{
+    using var _ = ClefEnvironment(provider: "clef", baseUrl: null, accountId: "0123abcdef", token: "cf-token");
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
+    Equal(DecisionProvider.Clef, endpoint.Provider);
+    Equal("https://api.cloudflare.com/client/v4/accounts/0123abcdef/", endpoint.BaseAddress.ToString());
+    Equal("ai/run/@cf/cloudflare/clef-flash", endpoint.RequestPath);
+    Equal(true, endpoint.ResultEnvelope);
+    Equal("cf-token", endpoint.ApiKey ?? string.Empty);
+    Equal(SystemOneEndpoint.DefaultClefModel, endpoint.Model ?? string.Empty);
+    Equal(true, SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Clef));
+    return Task.CompletedTask;
+});
+
+await Check("CLEF_BASE_URL wins over cloudflare credentials, so a local setup never calls out", () =>
+{
+    using var _ = ClefEnvironment(provider: "clef", baseUrl: "http://127.0.0.1:8012", accountId: "0123abcdef", token: "cf-token");
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment();
+    Equal("http://127.0.0.1:8012/", endpoint.BaseAddress.ToString());
+    Equal(SystemOneEndpoint.DefaultRequestPath, endpoint.RequestPath);
+    Equal(false, endpoint.ResultEnvelope);
+
+    // The Cloudflare token belongs to Cloudflare; it must not be sent to a local server.
+    if (endpoint.ApiKey is not null)
+    {
+        throw new InvalidOperationException($"Expected no bearer token for the local server, got '{endpoint.ApiKey}'.");
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("CLEF_BASE_URL alone selects clef, cloudflare credentials alone do not", () =>
+{
+    using (ClefEnvironment(provider: null, baseUrl: "http://clef.internal:9002", accountId: null, token: null))
+    {
+        Equal(DecisionProvider.Clef, SystemOneEndpoint.ProviderFromEnvironment());
+    }
+
+    using (ClefEnvironment(provider: null, baseUrl: null, accountId: "0123abcdef", token: "cf-token"))
+    {
+        Equal(DecisionProvider.Jev, SystemOneEndpoint.ProviderFromEnvironment());
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("hosted clef is not live with only half of its credentials", () =>
+{
+    using var _ = ClefEnvironment(provider: "clef", baseUrl: null, accountId: "0123abcdef", token: null);
+    Equal(false, SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Clef));
+    try
+    {
+        SystemOneEndpoint.FromEnvironment();
+    }
+    catch (InvalidOperationException ex)
+    {
+        Contains("CLOUDFLARE_API_TOKEN", ex.Message);
+        return Task.CompletedTask;
+    }
+
+    throw new InvalidOperationException("Expected a missing CLOUDFLARE_API_TOKEN to be reported.");
+});
+
+await Check("a cloudflare account id cannot rewrite the request route", () =>
+{
+    string[] accountIds = ["../zones", "abc/def", "abc?x=1", "abc def"];
+    foreach (string accountId in accountIds)
+    {
+        using var _ = ClefEnvironment(provider: "clef", baseUrl: null, accountId: accountId, token: "cf-token");
+        try
+        {
+            SystemOneEndpoint.FromEnvironment();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Contains("CLOUDFLARE_ACCOUNT_ID", ex.Message);
+            continue;
+        }
+
+        throw new InvalidOperationException($"Expected account id '{accountId}' to be refused.");
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("an unknown CLEF_MODEL is refused instead of becoming part of the route", () =>
+{
+    using var _ = ClefEnvironment(provider: "clef", baseUrl: null, accountId: "0123abcdef", token: "cf-token", model: "llama/../x");
+    try
+    {
+        SystemOneEndpoint.FromEnvironment();
+    }
+    catch (InvalidOperationException ex)
+    {
+        Contains("CLEF_MODEL", ex.Message);
+        return Task.CompletedTask;
+    }
+
+    throw new InvalidOperationException("Expected an unknown CLEF_MODEL to be refused.");
+});
+
+await Check("a hosted clef request uses the model route, a bearer token, and the model field", async () =>
+{
+    var handler = new RecordingHandler(ClefEnvelope(ClefResponseBody(allow: 0.93)));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.cloudflare.com/client/v4/accounts/0123abcdef/") };
+    using var client = new SystemOneHttpClient(http, HostedClefEndpoint());
+
+    SystemOneResponse response = await client.DecideAsync("state", new Dictionary<string, JevQuestion>
+    {
+        ["permission"] = new ChoiceQuestion("route", new Dictionary<string, string?>
+        {
+            ["allow"] = null, ["ask"] = null, ["deny"] = null,
+        }),
+    });
+
+    Equal("client/v4/accounts/0123abcdef/ai/run/@cf/cloudflare/clef-flash", handler.RequestPath);
+    Equal("Bearer cf-token", handler.Authorization);
+
+    // Clef rejects a request without a model selector, unlike Laya and Decider.
+    Contains("\"model\":\"clef-flash\"", handler.RequestBody);
+
+    var answer = (ChoiceAnswer)response.Answers["permission"];
+    Equal("clef-flash", response.Model);
+    Equal(0.93, answer.AnswerConfidence);
+    Equal(0.93, answer.Confidence);
+});
+
+await Check("a local clef response is read without the cloudflare envelope", async () =>
+{
+    var handler = new RecordingHandler(ClefResponseBody(allow: 0.93));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri(SystemOneEndpoint.DefaultClefBaseAddress) };
+    using var client = new SystemOneHttpClient(
+        http,
+        new SystemOneEndpoint(DecisionProvider.Clef, new Uri(SystemOneEndpoint.DefaultClefBaseAddress), ApiKey: null, Model: "clef-flash"));
+
+    GateResult result = await new CopilotToolGate(client).EvaluateAsync("edit", """{"path":"src/App.cs"}""");
+    Equal("v1/systemone", handler.RequestPath);
+    Equal(string.Empty, handler.Authorization);
+    Equal(GateDecision.Allow, result.Decision);
+    Contains("Clef", result.Reason);
+});
+
+await Check("an unsuccessful cloudflare envelope is an error, not an empty answer", async () =>
+{
+    const string failure = """
+        {"result": null, "success": false, "errors": [{"code": 5006, "message": "required properties at '/' are 'model'"}], "messages": []}
+        """;
+    var handler = new RecordingHandler(failure);
+    using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.cloudflare.com/client/v4/accounts/0123abcdef/") };
+    using var client = new SystemOneHttpClient(http, HostedClefEndpoint());
+
+    try
+    {
+        await client.DecideAsync("state", new Dictionary<string, JevQuestion> { ["a"] = new NoulQuestion("yes?") });
+    }
+    catch (HttpRequestException ex)
+    {
+        Contains("5006", ex.Message);
+        return;
+    }
+
+    throw new InvalidOperationException("Expected an HttpRequestException for success=false.");
+});
+
 await Check("the gate thresholds on max(p), not on the provider's confidence field", async () =>
 {
     // Laya's `confidence` is normalized entropy, so a decisive answer can report a low value. A
@@ -580,6 +752,7 @@ await Check("switching provider does not change a single gate decision in mock m
         ("bash", """{"command":"git push --force origin main"}"""),
         ("edit", """{"change":"update authentication middleware"}"""),
         ("laya_noul", """{"state":"A PR changes token refresh."}"""),
+        ("clef_choice", """{"state":"A PR changes token refresh."}"""),
     ];
 
     foreach ((string tool, string arguments) in cases)
@@ -587,10 +760,14 @@ await Check("switching provider does not change a single gate decision in mock m
         GateResult jevResult = await Gate(DecisionProvider.Jev).EvaluateAsync(tool, arguments);
         GateResult layaResult = await Gate(DecisionProvider.Laya).EvaluateAsync(tool, arguments);
         GateResult deciderResult = await Gate(DecisionProvider.Decider).EvaluateAsync(tool, arguments);
-        if (jevResult.Decision != layaResult.Decision || jevResult.Decision != deciderResult.Decision)
+        GateResult clefResult = await Gate(DecisionProvider.Clef).EvaluateAsync(tool, arguments);
+        if (jevResult.Decision != layaResult.Decision ||
+            jevResult.Decision != deciderResult.Decision ||
+            jevResult.Decision != clefResult.Decision)
         {
             throw new InvalidOperationException(
-                $"{tool}: jev said {jevResult.Decision}, laya said {layaResult.Decision}, decider said {deciderResult.Decision}.");
+                $"{tool}: jev said {jevResult.Decision}, laya said {layaResult.Decision}, " +
+                $"decider said {deciderResult.Decision}, clef said {clefResult.Decision}.");
         }
     }
 });
@@ -613,10 +790,16 @@ await Check("the mock reproduces each provider's own confidence definition", asy
         .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
     var deciderAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Decider)
         .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
+    var clefAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Clef)
+        .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
 
     // Same distribution, so the same max(p) and therefore the same policy outcome...
     Equal(jevAnswer.AnswerConfidence, layaAnswer.AnswerConfidence);
     Equal(jevAnswer.AnswerConfidence, deciderAnswer.AnswerConfidence);
+    Equal(jevAnswer.AnswerConfidence, clefAnswer.AnswerConfidence);
+
+    // ...Clef reports max(p) itself, so its display value and the policy value coincide...
+    Equal(clefAnswer.AnswerConfidence, clefAnswer.Confidence);
 
     // Decider Choice follows TypeSafe's confidence formula, while Laya deliberately differs.
     Equal(jevAnswer.Confidence, deciderAnswer.Confidence);
@@ -682,7 +865,7 @@ static SystemOneEndpoint LayaEndpoint(string? apiKey, string? model) =>
     new(DecisionProvider.Laya, new Uri(SystemOneEndpoint.DefaultLayaBaseAddress), apiKey, model);
 
 static SystemOneEndpoint DeciderEndpoint() =>
-    new(DecisionProvider.Decider, new Uri(SystemOneEndpoint.DefaultDeciderBaseAddress), apiKey: null, model: null);
+    new(DecisionProvider.Decider, new Uri(SystemOneEndpoint.DefaultDeciderBaseAddress), ApiKey: null, Model: null);
 
 // A laya-serve answer: the Jev-shaped body plus `answer_confidence`, `action` and `routing`.
 static string LayaResponseBody(double allow, double entropyConfidence)
@@ -732,6 +915,54 @@ static string DeciderResponseBody(double allow, double typeSafeConfidence)
         }
         """;
 }
+
+static SystemOneEndpoint HostedClefEndpoint() =>
+    new(
+        DecisionProvider.Clef,
+        new Uri("https://api.cloudflare.com/client/v4/accounts/0123abcdef/"),
+        "cf-token",
+        "clef-flash",
+        RequestPath: "ai/run/@cf/cloudflare/clef-flash",
+        ResultEnvelope: true);
+
+// Every variable that takes part in Clef resolution, so a developer's own Laya, Decider, or
+// Cloudflare setup cannot change what these tests resolve.
+static ScopedEnvironment ClefEnvironment(string? provider, string? baseUrl, string? accountId, string? token, string? model = null) =>
+    new(
+        ("DECISION_PROVIDER", provider),
+        ("LAYA_BASE_URL", null),
+        ("DECIDER_BASE_URL", null),
+        ("CLEF_BASE_URL", baseUrl),
+        ("CLEF_API_KEY", null),
+        ("CLEF_MODEL", model),
+        ("CLOUDFLARE_ACCOUNT_ID", accountId),
+        ("CLOUDFLARE_API_TOKEN", token));
+
+// A Clef answer, as joint_schema_model.systemone() builds it: `confidence` is max(p) and there is
+// no separate answer-confidence field.
+static string ClefResponseBody(double allow)
+{
+    double rest = Math.Round((1 - allow) / 2, 4);
+    string choice = allow >= rest ? "allow" : "ask";
+    static string Number(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+
+    return $$"""
+        {
+          "model": "clef-flash",
+          "answers": {
+            "permission": {"type": "choice", "choice": "{{choice}}",
+              "probabilities": {"allow": {{Number(allow)}}, "ask": {{Number(rest)}}, "deny": {{Number(rest)}}},
+              "confidence": {{Number(Math.Max(allow, rest))}}
+            }
+          },
+          "usage": {"input_tokens": 74, "output_tokens": 0}
+        }
+        """;
+}
+
+// Cloudflare's REST API wraps every result in the same envelope.
+static string ClefEnvelope(string result) =>
+    $$"""{"result": {{result}}, "success": true, "errors": [], "messages": []}""";
 
 async Task Check(string name, Func<Task> test)
 {
