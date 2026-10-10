@@ -4,6 +4,8 @@
 # TenLevels.Jev, which downloads the GitHub Copilot runtime from registry.npmjs.org: build that
 # one only when the Copilot-backed levels (6, 7, 10) are going to be run from the browser.
 #
+# Values in the repository's .env are loaded first (names only are printed, never values).
+#
 # With -Laya, -Decider, and/or -Clef it can also start the local model containers, wait for
 # /health, and point the UI at them so live mode is available from the first page load.
 [CmdletBinding()]
@@ -45,6 +47,36 @@ $port = 5088
 $url = "http://127.0.0.1:$port"
 if ($DeciderGpu) { $Decider = $true }
 if ($ClefGpu) { $Clef = $true }
+
+# Loads KEY=VALUE lines from the repository's .env (git-ignored; copy .env.example) into this
+# process, so the UI and everything it spawns see them. A variable already set in the shell wins,
+# and a blank value is skipped: the app treats "set but empty" differently from "unset" for some
+# provider switches, and .env.example lists every name with an empty default.
+function Import-DotEnv([string]$path) {
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $loaded = @()
+    $shadowed = @()
+    foreach ($line in Get-Content -LiteralPath $path) {
+        if ($line -notmatch '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') { continue }
+        $name = $Matches[1]
+        $value = $Matches[2]
+        if ($value -match '^"(.*)"$' -or $value -match "^'(.*)'$") { $value = $Matches[1] }
+        else { $value = $value -replace '\s+#.*$', '' }
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+        $current = [Environment]::GetEnvironmentVariable($name)
+        if (-not [string]::IsNullOrEmpty($current)) {
+            if ($current -ne $value) { $shadowed += $name }
+            continue
+        }
+        [Environment]::SetEnvironmentVariable($name, $value)
+        $loaded += $name
+    }
+    if ($loaded.Count -gt 0) { Write-Host "Loaded from .env: $($loaded -join ', ')" }
+    if ($shadowed.Count -gt 0) {
+        Write-Warning "These are already set in this shell to a different value than .env, so the shell value is used: $($shadowed -join ', '). Run Remove-Item Env:<NAME> to let .env apply."
+    }
+}
+Import-DotEnv (Join-Path $repository ".env")
 
 function Test-PortFree {
     $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)

@@ -68,7 +68,7 @@ public sealed record JevUsage(int InputTokens, int OutputTokens);
 /// <param name="Model">The decision head that answered, as named by the provider.</param>
 /// <param name="Routing">
 /// Which checkpoint the provider's router picked and why, when it reports one. Laya fills this in;
-/// Jev, Decider, and Clef have no equivalent routing block and leave it <c>null</c>.
+/// Jev, Decider, Clef, and Microsoft Decision have no equivalent routing block and leave it <c>null</c>.
 /// </param>
 public sealed record SystemOneResponse(
     string Model,

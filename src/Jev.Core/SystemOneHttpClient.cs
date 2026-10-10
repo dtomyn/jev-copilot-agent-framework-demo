@@ -6,7 +6,7 @@ namespace Jev.Core;
 
 /// <summary>
 /// One client for the <c>POST /v1/systemone</c> System-One contract shared by TypeSafe Jev,
-/// Laya, Mapika Decider, and Cloudflare Clef. Everything provider-specific is in the
+/// Laya, Mapika Decider, Cloudflare Clef, and Microsoft-Decision-1. Everything provider-specific is in the
 /// <see cref="SystemOneEndpoint"/> it is constructed with.
 /// </summary>
 public sealed class SystemOneHttpClient : IJevClient, IDisposable
@@ -73,17 +73,32 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
         }
 
         var payload = new SystemOneRequest(state, _endpoint.Model, questions);
+        // Serialize up front so the request carries a Content-Length. JsonContent streams the body
+        // with chunked transfer encoding, which gateways in front of a provider (Azure API
+        // Management, for one) reject with a 400 or by resetting the connection.
+        byte[] json = JsonSerializer.SerializeToUtf8Bytes(payload, JevJson.Options);
+        var content = new ByteArrayContent(json);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
         using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint.RequestPath)
         {
-            Content = JsonContent.Create(payload, options: JevJson.Options),
+            Content = content,
         };
 
         // Local providers normally use no bearer token: Laya and local Clef can opt into one, and
         // Decider's stock server is unauthenticated. Hosted Clef always sends a Cloudflare API
-        // token. Never send an empty Authorization header.
+        // token, and Microsoft Decision sends a Foundry key or Entra token. Never send an empty
+        // Authorization header.
         if (_endpoint.ApiKey is { Length: > 0 } apiKey)
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            if (_endpoint.ApiKeyHeader is { Length: > 0 } header)
+            {
+                // Foundry's key auth: the raw key in `api-key`, not a bearer token.
+                request.Headers.Add(header, apiKey);
+            }
+            else
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            }
         }
 
         using HttpResponseMessage response = await _http.SendAsync(request, cancellationToken);
@@ -172,7 +187,7 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
 
     /// <summary>
     /// Laya reports <c>answer_confidence</c>; Decider reports the same provider-independent
-    /// <c>max(p)</c> quantity as <c>x_p_max</c>. Jev and Clef report neither, so it is recovered
+    /// <c>max(p)</c> quantity as <c>x_p_max</c>. Jev, Clef, and Microsoft report neither, so it is recovered
     /// from the returned distribution. Clef's own <c>confidence</c> happens to equal <c>max(p)</c>,
     /// but the client does not rely on that. Policy thresholds therefore keep the same meaning on
     /// every provider.

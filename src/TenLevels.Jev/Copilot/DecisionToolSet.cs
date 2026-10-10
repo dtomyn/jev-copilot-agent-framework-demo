@@ -7,7 +7,7 @@ namespace TenLevels.Jev.Copilot;
 /// <summary>
 /// The three System-One primitives, exposed to a Microsoft Agent Framework agent as function
 /// tools. The tool names carry the provider prefix (<c>jev_*</c>, <c>laya_*</c>,
-/// <c>decider_*</c>, or <c>clef_*</c>) so a transcript shows which engine answered; <c>CopilotToolGate</c> allows
+/// <c>decider_*</c>, <c>clef_*</c>, or <c>microsoft_*</c>) so a transcript shows which engine answered; <c>CopilotToolGate</c> allows
 /// all provider prefixes, because the
 /// repository hook also sees these calls.
 /// </summary>

@@ -80,6 +80,7 @@ public sealed class CopilotToolGate
         "laya_noul", "laya_choice", "laya_score",
         "decider_noul", "decider_choice", "decider_score",
         "clef_noul", "clef_choice", "clef_score",
+        "microsoft_noul", "microsoft_choice", "microsoft_score",
     };
 
     private readonly IJevClient? _jev;
@@ -91,6 +92,7 @@ public sealed class CopilotToolGate
         DecisionProvider.Laya => "Laya",
         DecisionProvider.Decider => "Decider",
         DecisionProvider.Clef => "Clef",
+        DecisionProvider.Microsoft => "Microsoft Decision",
         DecisionProvider.Jev => "Jev",
         _ => "The decision provider",
     };
@@ -154,7 +156,7 @@ public sealed class CopilotToolGate
 
         // Gate on AnswerConfidence (max(p)), never on the provider's own `confidence` field. That
         // field has provider-specific semantics (Laya entropy; Jev/Decider TypeSafe-compatible
-        // formulas; Clef max(p)), so a threshold tuned against one provider can silently change
+        // formulas; Clef max(p); Microsoft undocumented), so a threshold tuned against one provider can silently change
         // meaning on another.
         double confidence = answer.AnswerConfidence;
 

@@ -80,6 +80,7 @@ public static class DecisionSession
         bool layaLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Laya);
         bool deciderLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Decider);
         bool clefLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Clef);
+        bool microsoftLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Microsoft);
         bool jevLive = SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Jev);
 
         return
@@ -103,6 +104,13 @@ public static class DecisionSession
                 "Clef",
                 clefLive,
                 ClefStatusMessage(clefLive)),
+            new ProviderStatus(
+                "microsoft",
+                "Microsoft Decision",
+                microsoftLive,
+                microsoftLive
+                    ? $"Live requests go to {Environment.GetEnvironmentVariable("MICROSOFT_DECISION_ENDPOINT")} (Microsoft Foundry)."
+                    : "Set MICROSOFT_DECISION_ENDPOINT, MICROSOFT_DECISION_DEPLOYMENT and MICROSOFT_DECISION_API_KEY (or MICROSOFT_DECISION_ACCESS_TOKEN) to enable live mode. See docs/MICROSOFT.md."),
             new ProviderStatus(
                 "jev",
                 "Jev",

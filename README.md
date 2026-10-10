@@ -2,7 +2,7 @@
 
 A .NET-first learning repo that starts with a single System-One probability and ends with that decision engine embedded in a GitHub Copilot coding-agent workflow.
 
-Four engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted; **[Laya](https://github.com/NandhaKishorM/laya)**, open source and local; **[Decider](https://github.com/Mapika/decider)**, open source and local; and **[Clef](https://developers.cloudflare.com/workers-ai/models/clef-flash/)**, Cloudflare's open-weights model, hosted on Workers AI or local in Docker. Laya, Decider, and Clef all expose the same System-One wire protocol, so one client and one set of DTOs serve all four; see [`docs/LAYA.md`](docs/LAYA.md), [`docs/DECIDER.md`](docs/DECIDER.md), and [`docs/CLEF.md`](docs/CLEF.md).
+Five engines are supported and are selected with one flag: **[TypeSafe Jev](https://api.typesafe.ai)**, hosted; **[Laya](https://github.com/NandhaKishorM/laya)**, open source and local; **[Decider](https://github.com/Mapika/decider)**, open source and local; and **[Clef](https://developers.cloudflare.com/workers-ai/models/clef-flash/)**, Cloudflare's open-weights model, hosted on Workers AI or local in Docker; and **[Microsoft-Decision-1](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-microsoft-decision)**, hosted in Microsoft Foundry. Laya, Decider, Clef, and Microsoft all expose the same System-One wire protocol, so one client and one set of DTOs serve all five; see [`docs/LAYA.md`](docs/LAYA.md), [`docs/DECIDER.md`](docs/DECIDER.md), [`docs/CLEF.md`](docs/CLEF.md), and [`docs/MICROSOFT.md`](docs/MICROSOFT.md).
 
 The structure is deliberately inspired by [`disler/ten-levels-of-jev`](https://github.com/disler/ten-levels-of-jev/tree/main/apps/ten-levels): each level adds one idea, the early levels run without a coding agent, and the later levels let the coding agent decide when Jev is useful. The Microsoft Agent Framework direction is informed by [`rwjdk/agent-framework-samples`](https://github.com/rwjdk/agent-framework-samples/tree/main/src/JevClassification), but this repo is an original implementation rather than a source port.
 
@@ -34,6 +34,7 @@ https://github.com/user-attachments/assets/dab5e710-14fb-46c3-a598-cc9047cf215f
 │   ├── LAYA.md                          # running the demo against local open-source Laya
 │   ├── DECIDER.md                       # Windows/Docker setup for local Decider
 │   ├── CLEF.md                          # Cloudflare Clef, hosted (Workers AI) or local (Docker)
+│   ├── MICROSOFT.md                     # Microsoft-Decision-1 on Microsoft Foundry
 │   ├── LEVELS.md
 │   ├── SECURITY.md
 │   ├── SOURCES.md
@@ -111,7 +112,7 @@ It names the process holding the port and prints the command to stop it.
 Add `-Restart` (or `--restart`) to stop an earlier demo UI and start the new one in one go; it never stops a process that is not `Jev.WebUi`.
 
 - **Provider and mode switch per request**, from the top bar.
-  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL`, Decider needs `DECIDER_BASE_URL` (the helper scripts use `http://127.0.0.1:8011`), and Clef needs either `CLEF_BASE_URL` (`http://127.0.0.1:8012`) or both `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+  Live mode is offered only for a provider the environment can actually reach: Jev needs `TYPESAFE_API_KEY`, Laya needs `LAYA_BASE_URL`, Decider needs `DECIDER_BASE_URL` (the helper scripts use `http://127.0.0.1:8011`), and Clef needs either `CLEF_BASE_URL` (`http://127.0.0.1:8012`) or both `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`; Microsoft needs `MICROSOFT_DECISION_ENDPOINT`, `MICROSOFT_DECISION_DEPLOYMENT`, and an API key or Entra token.
   The Jev key can also be entered in the **Config** dialog, in a masked field. It is applied as `TYPESAFE_API_KEY` for the UI and every hook and level process it starts, exactly as if it had been set in the shell. It is held in memory only, never written to disk, and never sent back to the page.
   Everything else runs against the deterministic mock.
 - **Every scenario is editable.**
@@ -143,6 +144,7 @@ For a live decision engine, pick one:
 - **Clef (Cloudflare, hosted or local).** For the hosted Workers AI path, set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, then use `--provider clef --mode live`; no hardware is needed, but the state is sent to Cloudflare.
   For the local path, run `.\scripts\clef-up.ps1 -Gpu` on a 24 GB+ NVIDIA GPU and set `CLEF_BASE_URL=http://127.0.0.1:8012`, which takes precedence over the Cloudflare credentials.
   See [`docs/CLEF.md`](docs/CLEF.md).
+- **Microsoft Decision (Microsoft Foundry, hosted).** Deploy `Microsoft-Decision-1`, set `MICROSOFT_DECISION_ENDPOINT`, `MICROSOFT_DECISION_DEPLOYMENT`, and `MICROSOFT_DECISION_API_KEY` (or `MICROSOFT_DECISION_ACCESS_TOKEN`), then use `--provider microsoft --mode live`. It is never auto-selected, and the state is sent to Azure. See [`docs/MICROSOFT.md`](docs/MICROSOFT.md).
 - **Jev (hosted).** Set a TypeSafe API key in `TYPESAFE_API_KEY` and use `--provider jev --mode live`. The client sends `POST https://api.typesafe.ai/v1/systemone` and defaults to `JEV_MODEL=jev-latest`.
 
 For Levels 6, 7, and 10, install and authenticate **GitHub Copilot CLI**. The repo pins `Microsoft.Agents.AI.GitHub.Copilot` 1.22.0 and uses `CopilotClient.AsAIAgent(...)` from Microsoft Agent Framework.
@@ -245,7 +247,7 @@ $env:TYPESAFE_API_KEY = "..."
 dotnet run --project src/TenLevels.Jev -- --level 4 --provider jev --mode live
 ```
 
-`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, then to `decider` when `DECIDER_BASE_URL` is set, then to `clef` when `CLEF_BASE_URL` is set, and to `jev` otherwise (Cloudflare credentials alone never select Clef). `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
+`--provider` defaults to `DECISION_PROVIDER`, then to `laya` when `LAYA_BASE_URL` is set, then to `decider` when `DECIDER_BASE_URL` is set, then to `clef` when `CLEF_BASE_URL` is set, and to `jev` otherwise (Cloudflare credentials alone never select Clef, and `microsoft` is only ever chosen explicitly). `--mode` defaults to `mock`. The older `--jev <mock|live>` spelling is still accepted as an alias for `--mode`.
 
 ## Run the Microsoft Agent Framework + Copilot levels
 
@@ -261,7 +263,7 @@ Use `--mode live` instead, with whichever `--provider` you configured.
 
 These examples deliberately give the Agent Framework agent only decision function tools. They do **not** grant its built-in shell/file/URL permissions. That keeps the lesson focused and prevents the MAF sample from becoming a second, hidden execution-policy surface.
 
-One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*`, `decider_*`, and `clef_*` spellings appear too, and the gate treats all twelve names as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
+One interaction is worth knowing before you adapt this: **the repository hook also sees the tool calls the Agent Framework agent makes**, including the `jev_noul` / `jev_choice` / `jev_score` functions the host registered itself. The tools are named after the selected provider, so the `laya_*`, `decider_*`, `clef_*`, and `microsoft_*` spellings appear too, and the gate treats all fifteen names as non-mutating after the hard-deny and credential checks have already run. Without that, the repo's own hook denies the agent's own decision calls and levels 6, 7, and 10 fail with a fail-closed hook error.
 
 ## Run the native GitHub Copilot CLI hook
 

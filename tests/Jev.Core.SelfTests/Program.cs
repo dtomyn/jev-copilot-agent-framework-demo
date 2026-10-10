@@ -419,7 +419,7 @@ await Check("jev stays the default and still demands a key", () =>
     catch (InvalidOperationException ex)
     {
         Contains("DECISION_PROVIDER=laya", ex.Message);
-        Contains("decider, or clef", ex.Message);
+        Contains("clef, or microsoft", ex.Message);
         return Task.CompletedTask;
     }
 
@@ -753,6 +753,7 @@ await Check("switching provider does not change a single gate decision in mock m
         ("edit", """{"change":"update authentication middleware"}"""),
         ("laya_noul", """{"state":"A PR changes token refresh."}"""),
         ("clef_choice", """{"state":"A PR changes token refresh."}"""),
+        ("microsoft_choice", """{"state":"A PR changes token refresh."}"""),
     ];
 
     foreach ((string tool, string arguments) in cases)
@@ -761,13 +762,16 @@ await Check("switching provider does not change a single gate decision in mock m
         GateResult layaResult = await Gate(DecisionProvider.Laya).EvaluateAsync(tool, arguments);
         GateResult deciderResult = await Gate(DecisionProvider.Decider).EvaluateAsync(tool, arguments);
         GateResult clefResult = await Gate(DecisionProvider.Clef).EvaluateAsync(tool, arguments);
+        GateResult microsoftResult = await Gate(DecisionProvider.Microsoft).EvaluateAsync(tool, arguments);
         if (jevResult.Decision != layaResult.Decision ||
             jevResult.Decision != deciderResult.Decision ||
-            jevResult.Decision != clefResult.Decision)
+            jevResult.Decision != clefResult.Decision ||
+            jevResult.Decision != microsoftResult.Decision)
         {
             throw new InvalidOperationException(
                 $"{tool}: jev said {jevResult.Decision}, laya said {layaResult.Decision}, " +
-                $"decider said {deciderResult.Decision}, clef said {clefResult.Decision}.");
+                $"decider said {deciderResult.Decision}, clef said {clefResult.Decision}, " +
+                $"microsoft said {microsoftResult.Decision}.");
         }
     }
 });
@@ -793,6 +797,10 @@ await Check("the mock reproduces each provider's own confidence definition", asy
     var clefAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Clef)
         .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
 
+    var microsoftAnswer = (ChoiceAnswer)(await new MockJevClient(DecisionProvider.Microsoft)
+        .DecideAsync("Copilot proposes to read a file.", questions)).Answers["route"];
+    Equal(jevAnswer.AnswerConfidence, microsoftAnswer.AnswerConfidence);
+
     // Same distribution, so the same max(p) and therefore the same policy outcome...
     Equal(jevAnswer.AnswerConfidence, layaAnswer.AnswerConfidence);
     Equal(jevAnswer.AnswerConfidence, deciderAnswer.AnswerConfidence);
@@ -808,6 +816,99 @@ await Check("the mock reproduces each provider's own confidence definition", asy
         throw new InvalidOperationException(
             $"Expected the two definitions to differ, got {jevAnswer.Confidence} and {layaAnswer.Confidence}.");
     }
+});
+
+// ---------------------------------------------------------------------------
+// Microsoft-Decision-1 on Foundry: providers/microsoft/v1/systemone, api-key or Entra auth.
+// ---------------------------------------------------------------------------
+
+await Check("microsoft resolves the Foundry route, deployment name and api-key header", () =>
+{
+    using var _ = MicrosoftEnvironment(endpoint: "https://res.services.ai.azure.com", deployment: "pi-decision-1", apiKey: "k", token: null);
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment(DecisionProvider.Microsoft);
+    Equal("https://res.services.ai.azure.com/", endpoint.BaseAddress.ToString());
+    Equal("providers/microsoft/v1/systemone", endpoint.RequestPath);
+    Equal("pi-decision-1", endpoint.Model ?? string.Empty);
+    Equal("api-key", endpoint.ApiKeyHeader ?? string.Empty);
+    Equal(false, endpoint.ResultEnvelope);
+    Equal(true, SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Microsoft));
+    return Task.CompletedTask;
+});
+
+await Check("an entra token wins over an api key and is sent as a bearer token", () =>
+{
+    using var _ = MicrosoftEnvironment(endpoint: "https://res.services.ai.azure.com", deployment: "d", apiKey: "k", token: "entra");
+
+    SystemOneEndpoint endpoint = SystemOneEndpoint.FromEnvironment(DecisionProvider.Microsoft);
+    Equal("entra", endpoint.ApiKey ?? string.Empty);
+    if (endpoint.ApiKeyHeader is not null)
+    {
+        throw new InvalidOperationException("Expected a bearer token, not an api-key header.");
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("microsoft is never auto-selected and is not live without all three settings", () =>
+{
+    using (MicrosoftEnvironment(endpoint: "https://res.services.ai.azure.com", deployment: "d", apiKey: "k", token: null, provider: null))
+    {
+        Equal(DecisionProvider.Jev, SystemOneEndpoint.ProviderFromEnvironment());
+    }
+
+    using (MicrosoftEnvironment(endpoint: "https://res.services.ai.azure.com", deployment: null, apiKey: "k", token: null))
+    {
+        Equal(false, SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Microsoft));
+    }
+
+    using (MicrosoftEnvironment(endpoint: "https://res.services.ai.azure.com", deployment: "d", apiKey: null, token: null))
+    {
+        Equal(false, SystemOneEndpoint.IsLiveConfigured(DecisionProvider.Microsoft));
+    }
+
+    return Task.CompletedTask;
+});
+
+await Check("a plain-http microsoft endpoint is refused so the key is never sent in clear", () =>
+{
+    using var _ = MicrosoftEnvironment(endpoint: "http://res.services.ai.azure.com", deployment: "d", apiKey: "k", token: null);
+    try
+    {
+        SystemOneEndpoint.FromEnvironment(DecisionProvider.Microsoft);
+    }
+    catch (InvalidOperationException ex)
+    {
+        Contains("https", ex.Message);
+        return Task.CompletedTask;
+    }
+
+    throw new InvalidOperationException("Expected an http endpoint to be refused.");
+});
+
+await Check("a microsoft request posts to the provider route with api-key and the deployment as model", async () =>
+{
+    var handler = new RecordingHandler(ClefResponseBody(allow: 0.93).Replace("clef-flash", "microsoft-decision-1"));
+    using var http = new HttpClient(handler) { BaseAddress = new Uri("https://res.services.ai.azure.com/") };
+    using var client = new SystemOneHttpClient(http, new SystemOneEndpoint(
+        DecisionProvider.Microsoft,
+        new Uri("https://res.services.ai.azure.com/"),
+        "foundry-key",
+        "pi-decision-1",
+        RequestPath: SystemOneEndpoint.MicrosoftRequestPath,
+        ApiKeyHeader: SystemOneEndpoint.MicrosoftApiKeyHeader));
+
+    GateResult result = await new CopilotToolGate(client).EvaluateAsync("edit", """{"path":"src/App.cs"}""");
+
+    Equal("providers/microsoft/v1/systemone", handler.RequestPath);
+    Equal("foundry-key", handler.ApiKey);
+    Equal(string.Empty, handler.Authorization);
+    Contains("\"model\":\"pi-decision-1\"", handler.RequestBody);
+    Equal(GateDecision.Allow, result.Decision);
+
+    // A gateway in front of the provider can refuse a chunked body, so a length must be sent.
+    Equal(Encoding.UTF8.GetByteCount(handler.RequestBody), (int)(handler.ContentLength ?? -1));
+    Contains("Microsoft Decision", result.Reason);
 });
 
 // ---------------------------------------------------------------------------
@@ -938,6 +1039,17 @@ static ScopedEnvironment ClefEnvironment(string? provider, string? baseUrl, stri
         ("CLOUDFLARE_ACCOUNT_ID", accountId),
         ("CLOUDFLARE_API_TOKEN", token));
 
+static ScopedEnvironment MicrosoftEnvironment(string? endpoint, string? deployment, string? apiKey, string? token, string? provider = "microsoft") =>
+    new(
+        ("DECISION_PROVIDER", provider),
+        ("LAYA_BASE_URL", null),
+        ("DECIDER_BASE_URL", null),
+        ("CLEF_BASE_URL", null),
+        ("MICROSOFT_DECISION_ENDPOINT", endpoint),
+        ("MICROSOFT_DECISION_DEPLOYMENT", deployment),
+        ("MICROSOFT_DECISION_API_KEY", apiKey),
+        ("MICROSOFT_DECISION_ACCESS_TOKEN", token));
+
 // A Clef answer, as joint_schema_model.systemone() builds it: `confidence` is max(p) and there is
 // no separate answer-confidence field.
 static string ClefResponseBody(double allow)
@@ -1043,12 +1155,18 @@ internal sealed class RecordingHandler(string responseBody, HttpStatusCode statu
 
     public string Authorization { get; private set; } = string.Empty;
 
+    public string ApiKey { get; private set; } = string.Empty;
+
+    public long? ContentLength { get; private set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         RequestPath = request.RequestUri!.AbsolutePath.TrimStart('/');
         Authorization = request.Headers.Authorization?.ToString() ?? string.Empty;
+        ApiKey = request.Headers.TryGetValues("api-key", out var keys) ? keys.First() : string.Empty;
+        ContentLength = request.Content?.Headers.ContentLength;
         RequestBody = request.Content is null
             ? string.Empty
             : await request.Content.ReadAsStringAsync(cancellationToken);

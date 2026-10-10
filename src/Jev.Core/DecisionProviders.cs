@@ -24,10 +24,18 @@ public enum DecisionProvider
     /// the container in <c>docker/clef</c>.
     /// </summary>
     Clef,
+
+    /// <summary>
+    /// Microsoft-Decision-1, deployed in Microsoft Foundry and called at
+    /// <c>{resource}/providers/microsoft/v1/systemone</c>. See <c>docs/MICROSOFT.md</c>.
+    /// </summary>
+    Microsoft,
 }
 
 /// <summary>
 /// Everything needed to reach one System-One provider, resolved from the environment.
+/// All five providers speak the System-One contract; the route, auth header and response envelope
+/// are the only things that differ, and they are all carried here.
 /// </summary>
 /// <param name="Provider">The provider family, which fixes the defaults below.</param>
 /// <param name="BaseAddress">Base address; the client posts to <paramref name="RequestPath"/> under it.</param>
@@ -49,14 +57,23 @@ public enum DecisionProvider
 /// Whether the response body is wrapped in Cloudflare's <c>{ "success", "errors", "result" }</c>
 /// API envelope, with the System-One response under <c>result</c>.
 /// </param>
+/// <param name="ApiKeyHeader">
+/// Name of a header that carries <paramref name="ApiKey"/> as-is (Foundry's <c>api-key</c>), or
+/// <c>null</c> to send it as an <c>Authorization: Bearer</c> token.
+/// </param>
 public sealed record SystemOneEndpoint(
     DecisionProvider Provider,
     Uri BaseAddress,
     string? ApiKey,
     string? Model,
     string RequestPath = SystemOneEndpoint.DefaultRequestPath,
-    bool ResultEnvelope = false)
+    bool ResultEnvelope = false,
+    string? ApiKeyHeader = null)
 {
+    public const string MicrosoftRequestPath = "providers/microsoft/v1/systemone";
+
+    public const string MicrosoftApiKeyHeader = "api-key";
+
     public const string DefaultRequestPath = "v1/systemone";
 
     public const string DefaultJevBaseAddress = "https://api.typesafe.ai/";
@@ -88,6 +105,7 @@ public sealed record SystemOneEndpoint(
         DecisionProvider.Laya => "laya",
         DecisionProvider.Decider => "decider",
         DecisionProvider.Clef => "clef",
+        DecisionProvider.Microsoft => "microsoft",
         _ => "jev",
     };
 
@@ -96,6 +114,7 @@ public sealed record SystemOneEndpoint(
         DecisionProvider.Laya => "Laya",
         DecisionProvider.Decider => "Decider",
         DecisionProvider.Clef => "Clef",
+        DecisionProvider.Microsoft => "Microsoft Decision",
         _ => "Jev",
     };
 
@@ -126,12 +145,14 @@ public sealed record SystemOneEndpoint(
 
             DecisionProvider.Clef => ClefFromEnvironment(),
 
+            DecisionProvider.Microsoft => MicrosoftFromEnvironment(),
+
             _ => new SystemOneEndpoint(
                 DecisionProvider.Jev,
                 ReadBaseAddress("JEV_BASE_URL", DefaultJevBaseAddress),
                 NullIfBlank(Environment.GetEnvironmentVariable("TYPESAFE_API_KEY"))
                     ?? throw new InvalidOperationException(
-                        "TYPESAFE_API_KEY is not set. Set it, or select another provider with DECISION_PROVIDER=laya, decider, or clef."),
+                        "TYPESAFE_API_KEY is not set. Set it, or select another provider with DECISION_PROVIDER=laya, decider, clef, or microsoft."),
                 NullIfBlank(Environment.GetEnvironmentVariable("JEV_MODEL")) ?? DefaultJevModel),
         };
     }
@@ -156,6 +177,10 @@ public sealed record SystemOneEndpoint(
         DecisionProvider.Clef => NullIfBlank(Environment.GetEnvironmentVariable("CLEF_BASE_URL")) is not null ||
             (NullIfBlank(Environment.GetEnvironmentVariable("CLOUDFLARE_ACCOUNT_ID")) is not null &&
              NullIfBlank(Environment.GetEnvironmentVariable("CLOUDFLARE_API_TOKEN")) is not null),
+        DecisionProvider.Microsoft => NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_ENDPOINT")) is not null &&
+            NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_DEPLOYMENT")) is not null &&
+            (NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_API_KEY")) is not null ||
+             NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_ACCESS_TOKEN")) is not null),
         _ => NullIfBlank(Environment.GetEnvironmentVariable("TYPESAFE_API_KEY")) is not null,
     };
 
@@ -166,8 +191,9 @@ public sealed record SystemOneEndpoint(
         "laya" => DecisionProvider.Laya,
         "decider" or "mapika" => DecisionProvider.Decider,
         "clef" or "clef-flash" => DecisionProvider.Clef,
+        "microsoft" or "microsoft-decision" or "microsoft-decision-1" or "foundry" => DecisionProvider.Microsoft,
         _ => throw new ArgumentException(
-            $"Unknown decision provider '{value}'. Use 'jev', 'laya', 'decider', or 'clef'.",
+            $"Unknown decision provider '{value}'. Use 'jev', 'laya', 'decider', 'clef', or 'microsoft'.",
             nameof(value)),
     };
 
@@ -243,6 +269,49 @@ public sealed record SystemOneEndpoint(
             model,
             RequestPath: $"ai/run/@cf/cloudflare/{model}",
             ResultEnvelope: true);
+    }
+
+    /// <summary>
+    /// Microsoft-Decision-1 on a Foundry resource. The resource endpoint, the deployment name
+    /// (sent as the request's <c>model</c>, not the underlying model name) and a credential are all
+    /// required, and nothing here is auto-selected: the state goes to Azure only when
+    /// <c>DECISION_PROVIDER=microsoft</c> or <c>--provider microsoft</c> says so. An API key goes in
+    /// the <c>api-key</c> header; a Microsoft Entra access token goes in a bearer header and wins when
+    /// both are set, because it is the recommended method.
+    /// </summary>
+    private static SystemOneEndpoint MicrosoftFromEnvironment()
+    {
+        string endpoint = NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_ENDPOINT"))
+            ?? throw new InvalidOperationException(
+                "MICROSOFT_DECISION_ENDPOINT is not set. Use the resource endpoint from the Foundry deployment details page.");
+
+        string deployment = NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_DEPLOYMENT"))?.Trim()
+            ?? throw new InvalidOperationException(
+                "MICROSOFT_DECISION_DEPLOYMENT is not set. Use the deployment name, not the model name.");
+
+        string? accessToken = NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_ACCESS_TOKEN"));
+        string? apiKey = NullIfBlank(Environment.GetEnvironmentVariable("MICROSOFT_DECISION_API_KEY"));
+        if (accessToken is null && apiKey is null)
+        {
+            throw new InvalidOperationException(
+                "Set MICROSOFT_DECISION_API_KEY, or MICROSOFT_DECISION_ACCESS_TOKEN " +
+                "(az account get-access-token --resource https://cognitiveservices.azure.com).");
+        }
+
+        // The credential is sent to this host, so refuse anything but HTTPS rather than leak it.
+        Uri baseAddress = ReadBaseAddress("MICROSOFT_DECISION_ENDPOINT", endpoint);
+        if (baseAddress.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException("MICROSOFT_DECISION_ENDPOINT must be an https:// URL.");
+        }
+
+        return new SystemOneEndpoint(
+            DecisionProvider.Microsoft,
+            baseAddress,
+            accessToken ?? apiKey,
+            deployment,
+            RequestPath: MicrosoftRequestPath,
+            ApiKeyHeader: accessToken is null ? MicrosoftApiKeyHeader : null);
     }
 
     private static Uri ReadBaseAddress(string variable, string fallback)

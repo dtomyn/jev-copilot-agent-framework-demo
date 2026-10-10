@@ -24,15 +24,18 @@ if (args.Contains("--help", StringComparer.OrdinalIgnoreCase) || args.Contains("
           --level <n>             Run one level (default: 1).
           --all                   Run every level that does not need a Copilot runtime.
           --include-agent         With --all, also run the Copilot-backed levels (6, 7, 10).
-          --provider <jev|laya|decider|clef>
+          --provider <jev|laya|decider|clef|microsoft>
                                   Decision engine (default: DECISION_PROVIDER, else laya when
                                   LAYA_BASE_URL is set, decider when DECIDER_BASE_URL is set,
-                                  clef when CLEF_BASE_URL is set, else jev).
+                                  clef when CLEF_BASE_URL is set, else jev; microsoft is never
+                                  auto-selected).
           --mode <mock|live>      How to reach it (default: mock). '--jev' is accepted as an alias.
                                   'live' needs TYPESAFE_API_KEY for jev, a running laya-serve
                                   for laya, decider.serve for decider (see docs/DECIDER.md), or
                                   CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (or a local
-                                  CLEF_BASE_URL) for clef (see docs/CLEF.md).
+                                  CLEF_BASE_URL) for clef (see docs/CLEF.md), or
+                                  MICROSOFT_DECISION_ENDPOINT, _DEPLOYMENT and _API_KEY for
+                                  microsoft (see docs/MICROSOFT.md).
         """);
     return 0;
 }
