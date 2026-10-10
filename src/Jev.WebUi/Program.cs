@@ -136,6 +136,14 @@ static async Task<Results<Ok<T>, BadRequest<ProblemView>>> Guarded<T>(Func<Task<
     {
         return TypedResults.BadRequest(new ProblemView(ex.Message));
     }
+    catch (DecisionSession.WireFailureException ex)
+    {
+        return TypedResults.BadRequest(ex.InnerException is TaskCanceledException
+            ? new ProblemView(
+                "The live provider did not answer in time. A cold local model may still be loading; wait for its /health endpoint, try again, or switch to mock.",
+                ex.Wire)
+            : new ProblemView($"The live provider call failed: {Describe(ex.InnerException ?? ex)}", ex.Wire));
+    }
     catch (HttpRequestException ex)
     {
         return TypedResults.BadRequest(new ProblemView(
@@ -169,4 +177,4 @@ static string Describe(Exception ex)
     return string.Join(" ", messages);
 }
 
-internal sealed record ProblemView(string Error);
+internal sealed record ProblemView(string Error, IReadOnlyList<Jev.Core.WireExchange>? Wire = null);

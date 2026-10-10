@@ -1,3 +1,5 @@
+using Jev.Core;
+
 namespace Jev.WebUi;
 
 // Request and response shapes for the presentation UI. They exist so the browser can drive the
@@ -87,7 +89,8 @@ public sealed record DecideResponse(
     int OutputTokens,
     IReadOnlyList<AnswerView> Answers,
     string RequestJson,
-    long ElapsedMs);
+    long ElapsedMs,
+    IReadOnlyList<WireExchange> Wire);
 
 public sealed record ToolCallSpec(string Tool, string Arguments);
 
@@ -113,7 +116,8 @@ public sealed record GateResponse(
     string ProviderName,
     string Mode,
     string Description,
-    IReadOnlyList<GateCallView> Results);
+    IReadOnlyList<GateCallView> Results,
+    IReadOnlyList<WireExchange> Wire);
 
 /// <param name="Tool">One of <c>noul</c>, <c>choice</c>, <c>score</c>.</param>
 public sealed record ToolRequest(
@@ -129,7 +133,8 @@ public sealed record ToolResponse(
     string ProviderName,
     string Mode,
     string ResultJson,
-    long ElapsedMs);
+    long ElapsedMs,
+    IReadOnlyList<WireExchange> Wire);
 
 public sealed record HookRequest(
     string? Provider,

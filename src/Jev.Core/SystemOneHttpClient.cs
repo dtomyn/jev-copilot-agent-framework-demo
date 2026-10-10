@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
+using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace Jev.Core;
@@ -33,6 +35,12 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
     }
 
     public DecisionProvider Provider => _endpoint.Provider;
+
+    /// <summary>
+    /// Receives every exchange this client performs, successful or not, with credentials masked.
+    /// Off by default; the web UI sets it to feed its diagnostics area.
+    /// </summary>
+    public Action<WireExchange>? OnExchange { get; set; }
 
     public string Description => $"{_endpoint.DisplayName} live ({_endpoint.BaseAddress}" +
         $"{(_endpoint.Model is null ? ", provider-selected model" : $", model={_endpoint.Model}")}" +
@@ -101,15 +109,67 @@ public sealed class SystemOneHttpClient : IJevClient, IDisposable
             }
         }
 
-        using HttpResponseMessage response = await _http.SendAsync(request, cancellationToken);
-        string body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        string url = new Uri(_endpoint.BaseAddress, _endpoint.RequestPath).AbsoluteUri;
+        List<WireHeader> requestHeaders = [.. DescribeHeaders(request.Headers), .. DescribeHeaders(content.Headers)];
+        long started = Stopwatch.GetTimestamp();
+
+        HttpResponseMessage response;
+        string body;
+        try
         {
-            throw new HttpRequestException(
-                $"{_endpoint.DisplayName} returned {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            response = await _http.SendAsync(request, cancellationToken);
+            body = await response.Content.ReadAsStringAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            Publish(new WireExchange(
+                "POST", url, requestHeaders, Encoding.UTF8.GetString(json), null, null, [], null,
+                (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                ex.InnerException is null ? ex.Message : $"{ex.Message} {ex.InnerException.Message}"));
+            throw;
+        }
+
+        using (response)
+        {
+            Publish(new WireExchange(
+                "POST", url, requestHeaders, Encoding.UTF8.GetString(json),
+                (int)response.StatusCode, response.ReasonPhrase,
+                [.. DescribeHeaders(response.Headers), .. DescribeHeaders(response.Content.Headers)],
+                body, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds, null));
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"{_endpoint.DisplayName} returned {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            }
         }
 
         return ParseResponse(body, _endpoint.ResultEnvelope);
+    }
+
+    private void Publish(WireExchange exchange) => OnExchange?.Invoke(exchange);
+
+    private static IEnumerable<WireHeader> DescribeHeaders(HttpHeaders headers)
+    {
+        foreach (KeyValuePair<string, IEnumerable<string>> header in headers)
+        {
+            string value = string.Join(", ", header.Value);
+            yield return new WireHeader(header.Key, IsCredential(header.Key) ? Mask(value) : value);
+        }
+    }
+
+    private static bool IsCredential(string name) =>
+        name.Equals("Authorization", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("api-key", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase);
+
+    // Keeps the scheme so "Bearer" versus a raw key is still visible, and the length so a truncated
+    // paste is noticeable. Never any part of the secret.
+    private static string Mask(string value)
+    {
+        int space = value.IndexOf(' ');
+        string scheme = space > 0 ? value[..(space + 1)] : string.Empty;
+        return $"{scheme}<redacted, {value.Length - scheme.Length} chars>";
     }
 
     /// <summary>

@@ -360,6 +360,35 @@ await Check("http client surfaces API errors instead of inventing an answer", as
     throw new InvalidOperationException("Expected an HttpRequestException for a 422 response.");
 });
 
+await Check("diagnostics tap reports the exact URL, body and response, with credentials masked", async () =>
+{
+    const string error = """{"detail":"nope"}""";
+    var handler = new RecordingHandler(error, HttpStatusCode.UnprocessableEntity);
+    using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.typesafe.ai/") };
+    var exchanges = new List<WireExchange>();
+    var client = new SystemOneHttpClient(http, JevEndpoint("super-secret-key", "jev-latest")) { OnExchange = exchanges.Add };
+
+    try
+    {
+        await client.DecideAsync("state", new Dictionary<string, JevQuestion> { ["a"] = new NoulQuestion("yes?") });
+    }
+    catch (HttpRequestException)
+    {
+    }
+
+    WireExchange exchange = exchanges.Single();
+    Equal("https://api.typesafe.ai/v1/systemone", exchange.Url);
+    Equal(handler.RequestBody, exchange.RequestBody);
+    Equal(422, exchange.StatusCode ?? 0);
+    Equal(error, exchange.ResponseBody ?? string.Empty);
+    WireHeader auth = exchange.RequestHeaders.Single(x => x.Name == "Authorization");
+    Contains("Bearer <redacted", auth.Value);
+    if (exchange.RequestHeaders.Any(x => x.Value.Contains("super-secret-key", StringComparison.Ordinal)))
+    {
+        throw new InvalidOperationException("A credential leaked into the diagnostics headers.");
+    }
+});
+
 // ---------------------------------------------------------------------------
 // Laya: the same wire contract, different operational defaults.
 // ---------------------------------------------------------------------------

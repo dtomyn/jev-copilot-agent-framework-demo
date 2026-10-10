@@ -30,7 +30,8 @@ public static class DemoEndpoints
             throw new DecisionSession.UnavailableException("At least one question is required.");
         }
 
-        IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out string providerId, out string mode);
+        var wire = new DecisionSession.WireLog();
+        IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out string providerId, out string mode, wire);
         using IDisposable? lifetime = client as IDisposable;
 
         var questions = new Dictionary<string, JevQuestion>(StringComparer.Ordinal);
@@ -40,7 +41,7 @@ public static class DemoEndpoints
         }
 
         long started = Stopwatch.GetTimestamp();
-        SystemOneResponse response = await client.DecideAsync(request.State, questions, cancellationToken);
+        SystemOneResponse response = await WithWire(wire, () => client.DecideAsync(request.State, questions, cancellationToken));
         long elapsed = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         return new DecideResponse(
@@ -58,7 +59,8 @@ public static class DemoEndpoints
             // the answer. `model` is omitted here for the same reason the client omits it: a null
             // model is how Laya asks its router to choose and how Decider keeps the model server-selected.
             JsonSerializer.Serialize(new { state = request.State, questions }, WireJson),
-            elapsed);
+            elapsed,
+            wire.Exchanges);
     }
 
     /// <summary>
@@ -73,7 +75,8 @@ public static class DemoEndpoints
             throw new DecisionSession.UnavailableException("Add at least one tool call.");
         }
 
-        IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out string providerId, out string mode);
+        var wire = new DecisionSession.WireLog();
+        IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out string providerId, out string mode, wire);
         using IDisposable? lifetime = client as IDisposable;
         var gate = new CopilotToolGate(client);
 
@@ -82,7 +85,7 @@ public static class DemoEndpoints
         {
             string arguments = string.IsNullOrWhiteSpace(call.Arguments) ? "{}" : call.Arguments;
             long started = Stopwatch.GetTimestamp();
-            GateResult result = await gate.EvaluateAsync(call.Tool ?? string.Empty, arguments, cancellationToken);
+            GateResult result = await WithWire(wire, () => gate.EvaluateAsync(call.Tool ?? string.Empty, arguments, cancellationToken));
             long elapsed = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
             results.Add(new GateCallView(
@@ -103,7 +106,8 @@ public static class DemoEndpoints
             DecisionSession.DisplayName(client.Provider),
             mode,
             client.Description,
-            results);
+            results,
+            wire.Exchanges);
     }
 
     /// <summary>
@@ -114,7 +118,8 @@ public static class DemoEndpoints
     /// </summary>
     public static async Task<ToolResponse> ToolAsync(ToolRequest request, CancellationToken cancellationToken)
     {
-        IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out _, out string mode);
+        var wire = new DecisionSession.WireLog();
+        IJevClient client = DecisionSession.Create(request.Provider, request.Mode, out _, out string mode, wire);
         using IDisposable? lifetime = client as IDisposable;
         string prefix = SystemOneEndpoint.ProviderId(client.Provider);
         string kind = (request.Tool ?? string.Empty).Trim().ToLowerInvariant();
@@ -133,10 +138,10 @@ public static class DemoEndpoints
         };
 
         long started = Stopwatch.GetTimestamp();
-        SystemOneResponse response = await client.DecideAsync(
+        SystemOneResponse response = await WithWire(wire, () => client.DecideAsync(
             request.State,
             new Dictionary<string, JevQuestion> { ["answer"] = question },
-            cancellationToken);
+            cancellationToken));
         long elapsed = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         JevAnswer answer = response.Answers["answer"];
@@ -168,7 +173,22 @@ public static class DemoEndpoints
             DecisionSession.DisplayName(client.Provider),
             mode,
             JsonSerializer.Serialize(payload, WireJson),
-            elapsed);
+            elapsed,
+            wire.Exchanges);
+    }
+
+    // A failed live call throws before a response object exists, so the exchange it left in the log
+    // would be lost; re-throw with it attached so the diagnostics area can show the failure too.
+    private static async Task<T> WithWire<T>(DecisionSession.WireLog wire, Func<Task<T>> call)
+    {
+        try
+        {
+            return await call();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new DecisionSession.WireFailureException(ex, wire.Exchanges);
+        }
     }
 
     private static string StageLabel(GateStage stage) => stage switch

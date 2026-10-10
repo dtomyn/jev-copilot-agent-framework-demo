@@ -63,11 +63,106 @@
     } catch (_) {
       payload = null;
     }
+    if (payload && (payload.wire || !response.ok)) {
+      diagnostics.record(path, payload, response.ok);
+    }
     if (!response.ok) {
       throw new Error((payload && payload.error) || text || ('HTTP ' + response.status));
     }
     return payload;
   }
+
+  // ------------------------------------------------------------ diagnostics
+
+  // The server reports the exchange as it left the HTTP client, not a re-derivation of it, so what
+  // is shown here is what the provider received. Mock mode makes no call, and says so.
+  const diagnostics = (function () {
+    let count = 0;
+    const body = () => document.getElementById('diag-body');
+
+    function pretty(text) {
+      try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+      } catch (_) {
+        return text;
+      }
+    }
+
+    function headers(list) {
+      return list.length ? list.map(x => x.name + ': ' + x.value).join('\n') : '(none)';
+    }
+
+    function pane(title, text, language) {
+      return h('div', {}, [
+        h('h5', { text: title }),
+        h('pre', language ? { html: highlight(text, language) } : { text: text })
+      ]);
+    }
+
+    function entry(ex, label) {
+      const ok = ex.statusCode !== null && ex.statusCode >= 200 && ex.statusCode < 300;
+      const status = ex.statusCode === null ? 'no response' : ex.statusCode + ' ' + (ex.reasonPhrase || '');
+      return h('details', { class: 'xchg', open: true }, [
+        h('summary', {}, [
+          h('span', { class: 'tag', text: ex.method }),
+          h('span', { class: 'url', text: ex.url, title: ex.url }),
+          h('span', { class: 'status ' + (ok ? 'ok' : 'bad'), text: status }),
+          h('span', { class: 'meta', text: ex.elapsedMs + ' ms  ·  ' + label })
+        ]),
+        h('div', { class: 'xchg-body' }, [
+          ex.error ? h('div', { class: 'failure', text: 'Failed before a response: ' + ex.error }) : null,
+          h('div', {}, [
+            pane('Request headers', ex.method + ' ' + ex.url + '\n' + headers(ex.requestHeaders)),
+            pane('Request body', pretty(ex.requestBody), 'json')
+          ]),
+          h('div', {}, [
+            pane('Response headers', status + '\n' + headers(ex.responseHeaders)),
+            ex.responseBody === null ? pane('Response body', '(none)') : pane('Response body', pretty(ex.responseBody), 'json')
+          ])
+        ])
+      ]);
+    }
+
+    function add(node) {
+      const target = body();
+      const empty = target.querySelector('.diag-empty');
+      if (empty) { empty.remove(); }
+      target.insertBefore(node, target.firstChild);
+      count += 1;
+      document.getElementById('diag-count').textContent = String(count);
+    }
+
+    return {
+      record(path, payload, ok) {
+        const label = path.replace('/api/', '') + ' @ ' + new Date().toLocaleTimeString();
+        const wire = payload.wire || [];
+        if (!wire.length && ok) {
+          add(h('div', {
+            class: 'diag-note',
+            text: label + (payload.mode === 'mock'
+              ? ' - mock mode: no network call was made. Switch to Live to see the real URL, request and response.'
+              : ' - no provider call: every decision came from a deterministic gate layer.')
+          }));
+        }
+        wire.forEach(ex => add(entry(ex, label)));
+      },
+      clear() {
+        count = 0;
+        document.getElementById('diag-count').textContent = '0';
+        body().textContent = '';
+        body().appendChild(h('div', { class: 'diag-empty', text: 'Nothing sent yet. Run a level in Live mode.' }));
+      },
+      init() {
+        const panel = document.getElementById('diag');
+        const toggle = document.getElementById('diag-toggle');
+        const set = open => { panel.hidden = !open; toggle.setAttribute('aria-pressed', String(open)); };
+        toggle.addEventListener('click', () => set(panel.hidden));
+        document.getElementById('diag-close').addEventListener('click', () => set(false));
+        document.getElementById('diag-clear').addEventListener('click', () => this.clear());
+        this.clear();
+      }
+    };
+  })();
 
   const pct = v => (v * 100).toFixed(0) + '%';
   const num = (v, d) => (v === null || v === undefined ? 'n/a' : Number(v).toFixed(d === undefined ? 2 : d));
@@ -140,6 +235,7 @@
     });
 
     initConfig();
+    diagnostics.init();
   }
 
   // ----------------------------------------------------------------- config

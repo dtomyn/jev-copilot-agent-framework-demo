@@ -37,6 +37,7 @@
   <div class="spacer"></div>
 
   <button type="button" class="btn" id="config-open" aria-haspopup="dialog" title="Set the TypeSafe API key for live Jev">Config</button>
+  <button type="button" class="btn" id="diag-toggle" aria-pressed="false" aria-controls="diag" title="Show the exact URL, request and response of every provider call">Diagnostics <span class="count" id="diag-count">0</span></button>
   <a class="btn" id="tutorial-link" href="/tutorial" target="_blank" rel="noopener" title="Open the full step-by-step tutorial">Tutorial</a>
   <button type="button" class="btn" id="notes-toggle" aria-pressed="true" title="Show the presenter notes from docs/tutorial.html">Notes: on</button>
   <button type="button" class="btn" id="present-toggle" aria-pressed="false" title="Scale up for a projector">Presenter</button>
@@ -50,6 +51,17 @@
   </nav>
   <main id="main" aria-live="polite"></main>
 </div>
+
+<aside class="diag" id="diag" aria-label="Diagnostics" hidden>
+  <div class="diag-head">
+    <strong>Diagnostics</strong>
+    <span class="muted small">Exactly what was sent to and received from the provider. Credentials are masked.</span>
+    <div class="spacer"></div>
+    <button type="button" class="btn btn-ghost" id="diag-clear">Clear</button>
+    <button type="button" class="iconbtn" id="diag-close" aria-label="Close diagnostics">&times;</button>
+  </div>
+  <div class="diag-body" id="diag-body"></div>
+</aside>
 
 <!-- Static rather than built by app.js: it is the same dialog on every level. -->
 <dialog class="modal" id="config-dialog" aria-labelledby="config-title">

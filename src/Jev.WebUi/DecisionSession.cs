@@ -45,7 +45,7 @@ public static class DecisionSession
     /// Creates a client for one request. The caller disposes it: the live client owns an
     /// <see cref="HttpClient"/>, the mock owns nothing.
     /// </summary>
-    public static IJevClient Create(string? provider, string? mode, out string providerId, out string normalizedMode)
+    public static IJevClient Create(string? provider, string? mode, out string providerId, out string normalizedMode, WireLog? wire = null)
     {
         DecisionProvider resolved = ParseProvider(provider);
         providerId = SystemOneEndpoint.ProviderId(resolved);
@@ -60,12 +60,38 @@ public static class DecisionSession
         {
             // Short, because a browser is waiting. A cold local model container can take much
             // longer to load than this; its startup scripts wait for /health before enabling live mode.
-            return SystemOneHttpClient.FromEnvironment(resolved, TimeSpan.FromSeconds(20));
+            SystemOneHttpClient live = SystemOneHttpClient.FromEnvironment(resolved, TimeSpan.FromSeconds(20));
+            if (wire is not null)
+            {
+                live.OnExchange = wire.Add;
+            }
+
+            return live;
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
             throw new UnavailableException(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Collects the exchanges one request performs, for the diagnostics area. The gate can make
+    /// several provider calls per request, so this is a list rather than a single slot.
+    /// </summary>
+    public sealed class WireLog
+    {
+        private readonly List<WireExchange> _exchanges = [];
+
+        public IReadOnlyList<WireExchange> Exchanges => _exchanges;
+
+        public void Add(WireExchange exchange) => _exchanges.Add(exchange);
+    }
+
+    /// <summary>A failed live call, carrying what went over the wire so the UI can still show it.</summary>
+    public sealed class WireFailureException(Exception inner, IReadOnlyList<WireExchange> wire)
+        : Exception(inner.Message, inner)
+    {
+        public IReadOnlyList<WireExchange> Wire { get; } = wire;
     }
 
     public static string DisplayName(DecisionProvider provider) =>
