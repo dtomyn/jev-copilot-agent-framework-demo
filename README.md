@@ -17,7 +17,19 @@ It covers all ten levels, including the real GitHub Copilot agent on Levels 7 an
 
 https://github.com/user-attachments/assets/dab5e710-14fb-46c3-a598-cc9047cf215f
 
+The video is generated, not hand-captured, so it can be re-recorded after the UI changes.
+`scripts/make-demo-video.ps1` starts the UI, drives it with a scripted browser (Playwright), and encodes `artifacts/jev-demo.mp4` under GitHub's 10 MB attachment limit.
+It needs Python 3.10+, the .NET 10 SDK, an authenticated GitHub Copilot CLI (Levels 7 and 10 run the real agent), and a TypeSafe key in the environment:
 
+```powershell
+$env:TYPESAFE_API_KEY = "..."
+./scripts/make-demo-video.ps1
+```
+
+The key is typed into the UI's masked Config field during the recording and is never written to disk.
+The script takes about five minutes, most of it the two agent runs, which are sped up in the video.
+The agent's wording differs from run to run, so two recordings are never frame-identical.
+`artifacts/` is gitignored; to publish a new take, drag the file into the README on github.com.
 
 ## What you get
 
@@ -50,6 +62,8 @@ https://github.com/user-attachments/assets/dab5e710-14fb-46c3-a598-cc9047cf215f
 │   ├── clef-up.sh / clef-up.ps1         # build/start local Clef
 │   ├── clef-down.sh / clef-down.ps1
 │   ├── test-hook.sh / test-hook.ps1
+│   ├── make-demo-video.ps1              # re-record the demo video (scripted, see "Demo video")
+│   ├── demo-video/                      # Playwright recorder + ffmpeg encoder behind it
 │   └── webui.sh / webui.ps1             # build and start the interactive demo UI
 ├── src/
 │   ├── Jev.Core/                        # typed System-One client + mock + risk rules + policy gate
