@@ -37,15 +37,36 @@ if ($LASTEXITCODE -ne 0) { throw "TenLevels.Jev build failed." }
 # The UI is started WITHOUT the key in its environment: the recording enters it through the Config
 # dialog, which is the flow being demonstrated.
 $key = $env:TYPESAFE_API_KEY
+
+# Microsoft Decision has no Config dialog, so the UI reads it from its environment. Take only those
+# names from the repository's .env (the shell wins when both are set) and hand them to the UI process.
+$microsoft = @{}
+$dotenv = Join-Path $repository ".env"
+if (Test-Path $dotenv) {
+    foreach ($line in Get-Content $dotenv) {
+        if ($line -match '^\s*(MICROSOFT_DECISION_[A-Z_]+)\s*=\s*(.*?)\s*$') {
+            $microsoft[$Matches[1]] = $Matches[2].Trim('"', "'")
+        }
+    }
+}
+foreach ($name in @($microsoft.Keys)) {
+    $fromShell = [Environment]::GetEnvironmentVariable($name)
+    if ($fromShell) { $microsoft[$name] = $fromShell }
+}
+$microsoftLive = $microsoft["MICROSOFT_DECISION_ENDPOINT"] -and $microsoft["MICROSOFT_DECISION_DEPLOYMENT"] -and
+    ($microsoft["MICROSOFT_DECISION_API_KEY"] -or $microsoft["MICROSOFT_DECISION_ACCESS_TOKEN"])
+if (-not $microsoftLive) { Write-Warning "MICROSOFT_DECISION_* is incomplete (.env or shell): the Microsoft segment is skipped." }
 $frames = Join-Path ([System.IO.Path]::GetTempPath()) "jev-demo-frames-$PID"
 $ui = $null
 try {
     Remove-Item Env:TYPESAFE_API_KEY
     $env:ASPNETCORE_URLS = $url
+    if ($microsoftLive) { foreach ($name in $microsoft.Keys) { Set-Item "Env:$name" $microsoft[$name] } }
     $ui = Start-Process dotnet -ArgumentList @("run", "--project", (Join-Path $repository "src/Jev.WebUi"), "-c", "Release", "--no-build") `
         -WorkingDirectory $repository -PassThru -WindowStyle Hidden
     $env:TYPESAFE_API_KEY = $key
     Remove-Item Env:ASPNETCORE_URLS
+    foreach ($name in $microsoft.Keys) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
 
     $ready = $false
     for ($i = 0; $i -lt 60 -and -not $ready; $i++) {
@@ -54,6 +75,7 @@ try {
     if (-not $ready) { throw "The demo UI did not come up on $url." }
 
     $env:DEMO_URL = $url
+    $env:DEMO_MICROSOFT = if ($microsoftLive) { "1" } else { "0" }
     & $python.Source (Join-Path $tooling "record.py") $frames
     if ($LASTEXITCODE -ne 0) { throw "Recording failed." }
     & $python.Source (Join-Path $tooling "assemble.py") $frames $Output

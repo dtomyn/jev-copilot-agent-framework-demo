@@ -27,6 +27,8 @@ $env:TYPESAFE_API_KEY = "..."
 ```
 
 The key is typed into the UI's masked Config field during the recording and is never written to disk.
+If `MICROSOFT_DECISION_ENDPOINT`, `MICROSOFT_DECISION_DEPLOYMENT` and a credential are set in `.env` or the shell (see [`docs/MICROSOFT.md`](docs/MICROSOFT.md)), the recording also re-runs Level 4 live against Microsoft Decision; without them that segment is skipped.
+The recorder redacts any Azure or Microsoft URL the UI prints, so a private resource or gateway name never appears in the video.
 The script takes about five minutes, most of it the two agent runs, which are sped up in the video.
 The agent's wording differs from run to run, so two recordings are never frame-identical.
 `artifacts/` is gitignored; to publish a new take, drag the file into the README on github.com.

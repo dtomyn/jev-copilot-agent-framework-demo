@@ -27,6 +27,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 URL = os.environ.get("DEMO_URL", "http://127.0.0.1:5088")
 W, H = 1440, 900
 AGENT_TIMEOUT_MS = 300_000
+WITH_MICROSOFT = os.environ.get("DEMO_MICROSOFT") == "1"
 
 frames = []
 fast = False  # frames captured while True are sped up by assemble.py
@@ -58,6 +59,18 @@ OVERLAY = r"""
   const s = document.createElement('style'); s.textContent = css; document.documentElement.appendChild(s);
   const c = document.createElement('div'); c.id = 'demo-cap'; document.body.appendChild(c);
   const u = document.createElement('div'); u.id = 'demo-cur'; document.body.appendChild(u);
+  // The UI prints the live endpoint it talks to. Replace any Azure/Microsoft URL before it can be
+  // captured, so a private resource or gateway name never lands in a published recording.
+  const RX = /https:\/\/[A-Za-z0-9.\-]*(?:azure|windows\.net|microsoft)[^\s"',)]*/gi;
+  const scrub = () => {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const t = n.nodeValue.replace(RX, 'https://<resource>.services.ai.azure.com/');
+      if (t !== n.nodeValue) n.nodeValue = t;
+    }
+  };
+  scrub();
+  new MutationObserver(scrub).observe(document.body, {childList: true, subtree: true, characterData: true});
   window.__demo = {
     cap(html, top) { const c = document.getElementById('demo-cap'); if (!html) { c.style.opacity = 0; return; }
                      c.innerHTML = html; c.classList.toggle('top', !!top); c.style.opacity = 1; },
@@ -193,6 +206,8 @@ async def main(out: Path):
         await pg.wait_for_timeout(1200)
         await cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 88, "maxWidth": W, "maxHeight": H, "everyNthFrame": 1})
 
+        others = ("<b>Microsoft Decision (Foundry)</b> also runs <b>live</b>; the rest stay on the deterministic mock"
+                  if WITH_MICROSOFT else "Every other provider stays on the deterministic mock")
         await ui("h => window.__demo.card(h)", f"""
           <h1>Ten Levels of Typed Decisions</h1>
           <p>.NET 10 &middot; Microsoft Agent Framework &middot; GitHub Copilot CLI</p>
@@ -200,7 +215,7 @@ async def main(out: Path):
           <ul>
             <li>Recorded on: {machine_line()}</li>
             <li><b>Jev (TypeSafe, hosted)</b> runs <b>live</b> with an API key entered in the UI</li>
-            <li>Every other provider stays on the deterministic mock</li>
+            <li>{others}</li>
           </ul>""")
         await pg.wait_for_timeout(6500)
         await ui("() => window.__demo.card(null)")
@@ -235,6 +250,17 @@ async def main(out: Path):
 
         await level(4, "Level 4: Noul, Choice and Score in one request against the same state")
         await run("Run level 4", 5.5)
+
+        if WITH_MICROSOFT:
+            await cap("Same code, same DTOs, different engine: switch the provider to Microsoft Decision<small>Microsoft-Decision-1 on Microsoft Foundry speaks the same System-One contract</small>", 3.2)
+            await click("[data-provider=microsoft]", 0.4)
+            await click("[data-mode=live]", 1.2)
+            await scroll_top()
+            await run("Run level 4", 5.5)
+            await cap("Live Microsoft Decision answers the same three questions<small>Its own route, api-key header and deployment name are confined to SystemOneEndpoint; the gate reads max(p) either way</small>", 4.5)
+            await scroll_top()
+            await click("[data-provider=jev]", 0.4)
+            await click("[data-mode=live]", 1.0)
 
         await level(5, "Level 5: code owns the policy<small>Deterministic hard rules answer first; only what survives becomes a model question</small>")
         await click(pg.get_by_role("button", name="curl | sh", exact=True), 0.4)
